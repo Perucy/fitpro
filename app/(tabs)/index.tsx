@@ -1,75 +1,167 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { StyleSheet, Text, View, Button, Alert } from 'react-native';
+import { useState, useEffect } from 'react';
+import SpotifyService from '../../services/SpotifyService';
 
 export default function HomeScreen() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userInfo, setUserInfo] = useState(null);
+
+  // Check auth status when screen loads
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    const authenticated = await SpotifyService.isAuthenticated();
+    setIsAuthenticated(authenticated);
+    
+    if (authenticated) {
+      const user = await SpotifyService.getStoredUserInfo();
+      setUserInfo(user);
+    }
+  };
+  
+  const testBackend = async () => {
+    try {
+      console.log('🧪 Testing backend connection...');
+      const result = await SpotifyService.testConnection();
+      Alert.alert('Success!', `Backend says: ${result.message}`);
+    } catch (error) {
+      Alert.alert('Error', 'Could not connect to backend. Is it running?');
+    }
+  };
+
+  const testAuthUrl = async () => {
+    try {
+      console.log('🔗 Testing auth URL generation...');
+      const result = await SpotifyService.getAuthUrl();
+      Alert.alert('Auth URL Generated!', `State: ${result.state.substring(0, 10)}...`);
+    } catch (error) {
+      Alert.alert('Error', 'Could not get auth URL from backend');
+    }
+  };
+
+  // NEW: Test full OAuth flow
+  const testOAuth = async () => {
+    try {
+      console.log('🔐 Testing full OAuth flow...');
+      const result = await SpotifyService.authenticate();
+      
+      Alert.alert(
+        'OAuth Success! 🎉', 
+        `Welcome ${result}!`
+      );
+      
+      // Refresh auth status
+      await checkAuthStatus();
+      
+    } catch (error) {
+      Alert.alert('OAuth Failed');
+    }
+  };
+
+  // NEW: Test logout
+  const testLogout = async () => {
+    try {
+      await SpotifyService.logout();
+      Alert.alert('Logged Out', 'Successfully logged out');
+      await checkAuthStatus();
+    } catch (error) {
+      Alert.alert('Error', 'Logout failed');
+    }
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Hello world!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <Text style={styles.title}>🎵 Spotify App</Text>
+      
+      {isAuthenticated ? (
+        <View>
+          <Text style={styles.subtitle}>✅ Authenticated as:</Text>
+          <Text style={styles.userName}>In</Text>
+          <Text style={styles.email}>Out</Text>
+        </View>
+      ) : (
+        <Text style={styles.subtitle}>❌ Not authenticated</Text>
+      )}
+
+      <View style={styles.buttonContainer}>
+        <View style={styles.buttonSpacing}>
+          <Button
+            title="Test Backend Connection"
+            onPress={testBackend}
+            color="#1DB954"
+          />
+        </View>
+        
+        <View style={styles.buttonSpacing}>
+          <Button
+            title="Test Auth URL Generation"
+            onPress={testAuthUrl}
+            color="#FF6B6B"
+          />
+        </View>
+
+        <View style={styles.buttonSpacing}>
+          <Button
+            title="🔐 Test Full OAuth Flow"
+            onPress={testOAuth}
+            color="#1DB954"
+          />
+        </View>
+
+        {isAuthenticated && (
+          <View style={styles.buttonSpacing}>
+            <Button
+              title="Logout"
+              onPress={testLogout}
+              color="#FF6B6B"
+            />
+          </View>
+        )}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    padding: 20,
+    backgroundColor: '#fff',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  email: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  buttonContainer: {
+    width: '100%',
+    maxWidth: 250,
+  },
+  buttonSpacing: {
+    marginBottom: 15,
   },
 });
