@@ -34,7 +34,7 @@
           "data": [
             {
               "scheme": "fitpro",
-              "host": "oauth"
+              "host": "callback"
             }
           ],
           "category": [

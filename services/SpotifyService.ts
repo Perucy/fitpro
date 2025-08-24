@@ -1,10 +1,10 @@
 import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
+import * as Linking from 'expo-linking';
 
 class SpotifyService {
   private baseURL = 'http://127.0.0.1:8000';
 
-  // Helper to handle unknown errors
   private getErrorMessage(error: unknown): string {
     if (error instanceof Error) return error.message;
     return String(error);
@@ -34,84 +34,174 @@ class SpotifyService {
     }
   }
 
+  // NEW: Manual OAuth flow to avoid AuthSession state conflicts
   async authenticate() {
-    try {
-      console.log('🚀 Starting OAuth flow...');
-      
-      const { auth_url, state } = await this.getAuthUrl();
-      
-      await SecureStore.setItemAsync('spotify_auth_state', state);
-      
-      const redirectUri = AuthSession.makeRedirectUri({
-        scheme: 'your-app-scheme'
-      });
-      
-      console.log('🔄 Redirect URI:', redirectUri);
-      
-      const request = new AuthSession.AuthRequest({
-        clientId: 'dummy',
-        scopes: [],
-        redirectUri: redirectUri,
-        responseType: AuthSession.ResponseType.Code,
-      });
-      
-      const result = await request.promptAsync({
-        authorizationEndpoint: auth_url,
-      });
-      
-      console.log('📱 OAuth result:', result.type);
-      
-      if (result.type === 'success') {
-        return await this.handleAuthCallback(result.url || '');
-      } else {
-        throw new Error(`OAuth ${result.type}`);
+    return new Promise(async (resolve, reject) => {
+      try {
+        console.log('🚀 Starting manual OAuth flow...');
+        
+        const { auth_url, state } = await this.getAuthUrl();
+        
+        // Store our backend's state
+        await SecureStore.setItemAsync('spotify_auth_state', state);
+        console.log('🔐 Stored backend state:', state.substring(0, 8) + '...');
+        
+        // Set up deep link listener BEFORE opening URL
+        const handleUrl = async (event: { url: string }) => {
+          console.log('📱 Received callback:', event.url);
+          
+          try {
+            const result = await this.handleAuthCallback(event.url);
+            subscription.remove();
+            resolve(result);
+          } catch (error) {
+            subscription.remove();
+            reject(error);
+          }
+        };
+        
+        const subscription = Linking.addEventListener('url', handleUrl);
+        
+        // Open the auth URL directly in browser
+        console.log('🌐 Opening Spotify login...');
+        await Linking.openURL(auth_url);
+        
+        // Set timeout (5 minutes)
+        setTimeout(() => {
+          subscription.remove();
+          reject(new Error('Authentication timeout'));
+        }, 300000);
+        
+      } catch (error) {
+        console.error('❌ Manual OAuth error:', error);
+        reject(new Error(`OAuth failed: ${this.getErrorMessage(error)}`));
       }
-    } catch (error) {
-      console.error('❌ OAuth error:', error);
-      throw new Error(`OAuth failed: ${this.getErrorMessage(error)}`);
-    }
+    });
   }
 
   private async handleAuthCallback(url: string) {
     try {
-      console.log('🔄 Processing callback...');
+      console.log('🔄 Processing manual callback...');
       console.log('📋 Callback URL:', url);
       
-      const urlObj = new URL(url);
-      const code = urlObj.searchParams.get('code');
-      const state = urlObj.searchParams.get('state');
-      const error = urlObj.searchParams.get('error');
+      const params = this.parseUrlParams(url);
+      console.log('🔍 Parsed parameters:', params);
+      
+      const error = params.error;
+      const cancelled = params.cancelled;
+      const code = params.code;
+      const state = params.state;
+      const success = params.success;
+      const userId = params.user_id;
+      const displayName = params.display_name;
+
+      if (cancelled === 'true') {
+        console.log('❌ User cancelled authentication');
+        await SecureStore.deleteItemAsync('spotify_auth_state');
+        throw new Error('Authentication cancelled by user');
+      }
 
       if (error) {
+        await SecureStore.deleteItemAsync('spotify_auth_state');
         throw new Error(`Spotify error: ${error}`);
       }
 
-      if (!code || !state) {
-        throw new Error('Missing code or state');
-      }
-
-      const storedState = await SecureStore.getItemAsync('spotify_auth_state');
-      if (state !== storedState) {
-        throw new Error('Invalid state parameter');
-      }
-
-      const response = await fetch(`${this.baseURL}/auth/callback?code=${code}&state=${state}`);
-      const userData = await response.json();
-
-      if (userData.success) {
-        console.log('✅ OAuth successful!', userData.user_info.display_name);
+      // Backend redirect flow (if your backend redirects directly)
+      if (success === 'true' && userId) {
+        console.log('✅ Backend redirect flow detected');
         
-        await SecureStore.setItemAsync('spotify_user_id', userData.user_id);
-        await SecureStore.setItemAsync('spotify_user_info', JSON.stringify(userData.user_info));
+        await SecureStore.deleteItemAsync('spotify_auth_state');
         
-        return userData;
+        const userResponse = await fetch(`${this.baseURL}/api/user/${userId}/profile`);
+        if (!userResponse.ok) {
+          throw new Error('Failed to fetch user profile');
+        }
+        const userInfo = await userResponse.json();
+        
+        await SecureStore.setItemAsync('spotify_user_id', userId);
+        await SecureStore.setItemAsync('spotify_user_info', JSON.stringify(userInfo));
+        
+        return {
+          success: true,
+          user_id: userId,
+          user_info: userInfo,
+          message: 'Authentication successful'
+        };
       }
 
-      throw new Error('Token exchange failed');
+      // Direct OAuth callback with code and state
+      if (code && state) {
+        console.log('✅ Direct OAuth callback detected');
+        console.log('📝 Code:', code.substring(0, 20) + '...');
+        console.log('📝 State:', state);
+        
+        // Verify state matches our stored state
+        const storedState = await SecureStore.getItemAsync('spotify_auth_state');
+        console.log('🔐 Stored state:', storedState);
+        console.log('🔐 Received state:', state);
+        
+        if (state !== storedState) {
+          await SecureStore.deleteItemAsync('spotify_auth_state');
+          throw new Error(`State mismatch: expected ${storedState}, got ${state}`);
+        }
+
+        console.log('✅ State verified, exchanging code for tokens...');
+
+        // Exchange code for tokens via backend
+        const tokenResponse = await fetch(`${this.baseURL}/auth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`);
+        
+        if (!tokenResponse.ok) {
+          const errorText = await tokenResponse.text();
+          console.error('❌ Token exchange failed:', errorText);
+          await SecureStore.deleteItemAsync('spotify_auth_state');
+          throw new Error(`Token exchange failed: ${errorText}`);
+        }
+        
+        const userData = await tokenResponse.json();
+        console.log('📦 Token exchange response:', userData);
+
+        if (userData.success) {
+          console.log('✅ Authentication successful!', userData.user_info.display_name);
+          
+          await SecureStore.deleteItemAsync('spotify_auth_state');
+          await SecureStore.setItemAsync('spotify_user_id', userData.user_id);
+          await SecureStore.setItemAsync('spotify_user_info', JSON.stringify(userData.user_info));
+          
+          return {
+            success: true,
+            user_id: userData.user_id,
+            user_info: userData.user_info,
+            message: 'Authentication successful'
+          };
+        }
+
+        throw new Error(`Authentication failed: ${userData.message || 'Unknown error'}`);
+      }
+
+      throw new Error('No valid callback parameters found');
     } catch (error) {
-      console.error('❌ Callback processing failed:', error);
+    //   console.error('❌ Manual callback processing failed:', error);
+      await SecureStore.deleteItemAsync('spotify_auth_state');
       throw new Error(`Callback failed: ${this.getErrorMessage(error)}`);
     }
+  }
+
+  private parseUrlParams(url: string): Record<string, string> {
+    const params: Record<string, string> = {};
+    const queryStart = url.indexOf('?');
+    if (queryStart === -1) return params;
+    
+    const queryString = url.substring(queryStart + 1);
+    const pairs = queryString.split('&');
+    
+    for (const pair of pairs) {
+      const [key, value] = pair.split('=');
+      if (key && value) {
+        params[decodeURIComponent(key)] = decodeURIComponent(value);
+      }
+    }
+    
+    return params;
   }
 
   async isAuthenticated() {

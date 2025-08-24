@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View, Button, Alert } from 'react-native';
 import { useState, useEffect } from 'react';
 import SpotifyService from '../../services/SpotifyService';
+import type { SpotifyUser } from '../../types/spotify';
 
 export default function HomeScreen() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -42,6 +43,7 @@ export default function HomeScreen() {
   };
 
   // NEW: Test full OAuth flow
+  // In your home screen component
   const testOAuth = async () => {
     try {
       console.log('🔐 Testing full OAuth flow...');
@@ -49,37 +51,63 @@ export default function HomeScreen() {
       
       Alert.alert(
         'OAuth Success! 🎉', 
-        `Welcome ${result}!`
+        `Welcome ${result.user_info.display_name}!`
       );
       
       // Refresh auth status
       await checkAuthStatus();
       
     } catch (error) {
-      Alert.alert('OAuth Failed');
+      // console.error('OAuth test error:', error);
+      
+      const errorMessage = error.message || 'Authentication failed';
+      
+      // Show user-friendly messages based on error type
+      if (errorMessage.includes('cancelled')) {
+        Alert.alert(
+          'Login Cancelled', 
+          'No worries! You can try logging in again anytime.',
+          [{ text: 'OK', style: 'default' }]
+        );
+      } else if (errorMessage.includes('timeout')) {
+        Alert.alert(
+          'Login Timeout', 
+          'The login process took too long. Please try again.',
+          [{ text: 'Try Again', style: 'default' }]
+        );
+      } else {
+        Alert.alert(
+          'Login Failed', 
+          errorMessage,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Try Again', style: 'default' }
+          ]
+        );
+      }
     }
   };
 
-  // NEW: Test logout
-  const testLogout = async () => {
-    try {
-      await SpotifyService.logout();
-      Alert.alert('Logged Out', 'Successfully logged out');
-      await checkAuthStatus();
-    } catch (error) {
-      Alert.alert('Error', 'Logout failed');
-    }
-  };
+    // NEW: Test logout
+    const testLogout = async () => {
+      try {
+        await SpotifyService.logout();
+        Alert.alert('Logged Out', 'Successfully logged out');
+        await checkAuthStatus();
+      } catch (error) {
+        Alert.alert('Error', 'Logout failed');
+      }
+    };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🎵 Spotify App</Text>
       
-      {isAuthenticated ? (
+      {isAuthenticated && userInfo? (
         <View>
           <Text style={styles.subtitle}>✅ Authenticated as:</Text>
-          <Text style={styles.userName}>In</Text>
-          <Text style={styles.email}>Out</Text>
+          <Text style={styles.userName}>{userInfo.display_name}</Text>
+          <Text style={styles.email}>{userInfo.email}</Text>
         </View>
       ) : (
         <Text style={styles.subtitle}>❌ Not authenticated</Text>
