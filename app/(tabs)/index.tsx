@@ -5,7 +5,7 @@ import type { SpotifyUser } from '../../types/spotify';
 
 export default function HomeScreen() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userInfo, setUserInfo] = useState(null);
+  const [userInfo, setUserInfo] = useState<SpotifyUser | null>(null);
 
   // Check auth status when screen loads
   useEffect(() => {
@@ -48,10 +48,12 @@ export default function HomeScreen() {
     try {
       console.log('🔐 Testing full OAuth flow...');
       const result = await SpotifyService.authenticate();
+      // Type assertion to fix 'unknown' type error
+      const oauthResult = result as { user_info: { display_name: string } };
       
       Alert.alert(
         'OAuth Success! 🎉', 
-        `Welcome ${result.user_info.display_name}!`
+        `Welcome ${oauthResult.user_info.display_name}!`
       );
       
       // Refresh auth status
@@ -60,7 +62,10 @@ export default function HomeScreen() {
     } catch (error) {
       // console.error('OAuth test error:', error);
       
-      const errorMessage = error.message || 'Authentication failed';
+      const errorMessage =
+        typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string'
+          ? (error as any).message
+          : 'Authentication failed';
       
       // Show user-friendly messages based on error type
       if (errorMessage.includes('cancelled')) {
