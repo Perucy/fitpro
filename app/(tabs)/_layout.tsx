@@ -34,12 +34,34 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="workout"
+        options={{
+          title: 'Workout',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="dumbbell.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="music"
+        options={{
+          title: 'Music',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="headphones" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="coach"
+        options={{
+          title: 'Coach',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="sportscourt" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
+          title: 'More',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
         }}
       />
+      
     </Tabs>
   );
 }
