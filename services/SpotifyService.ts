@@ -24,7 +24,7 @@ class SpotifyService {
 
   async getAuthUrl() {
     try {
-      const response = await fetch(`${this.baseURL}/auth/login`);
+      const response = await fetch(`${this.baseURL}/spotify/auth/login`);
       const data = await response.json();
       console.log('🔗 Got auth URL:', data);
       return data;
@@ -112,7 +112,7 @@ class SpotifyService {
         
         await SecureStore.deleteItemAsync('spotify_auth_state');
         
-        const userResponse = await fetch(`${this.baseURL}/api/user/${userId}/profile`);
+        const userResponse = await fetch(`${this.baseURL}/spotify/api/user/${userId}/profile`);
         if (!userResponse.ok) {
           throw new Error('Failed to fetch user profile');
         }
@@ -148,7 +148,7 @@ class SpotifyService {
         console.log('✅ State verified, exchanging code for tokens...');
 
         // Exchange code for tokens via backend
-        const tokenResponse = await fetch(`${this.baseURL}/auth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`);
+        const tokenResponse = await fetch(`${this.baseURL}/spotify/auth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`);
         
         if (!tokenResponse.ok) {
           const errorText = await tokenResponse.text();
