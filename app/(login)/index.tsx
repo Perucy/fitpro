@@ -11,6 +11,7 @@ import {
     TouchableWithoutFeedback,
 } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import { router } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
 
@@ -37,8 +38,9 @@ export default function AppPage() {
                 nativeControls={false}
                 pointerEvents="none"
             />
-            <TouchableOpacity style={styles.overlayButton}>
-                <Text style={styles.buttonText}>Login/ Sign Up</Text>
+            <TouchableOpacity style={styles.overlayButton}
+                onPress={() => router.push('../(login)/form')}>
+                <Text style={styles.buttonText}>Sign In</Text>
             </TouchableOpacity>
         </View>
     );
