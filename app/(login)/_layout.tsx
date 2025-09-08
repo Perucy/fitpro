@@ -8,6 +8,7 @@ export default function LoginLayout() {
             }}
         >
             <Stack.Screen name="index" />
+            <Stack.Screen name="form" />
         </Stack>
     )
 }
