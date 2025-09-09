@@ -7,27 +7,19 @@ import {
     StyleSheet,
     Alert,
     StatusBar,
+    ImageBackground,
+    KeyboardAvoidingView,
+    Platform
 } from 'react-native';
 import { router } from 'expo-router';
 
 export default function LoginForm() {
-    //tab state
     const [activeTab, setActiveTab] = useState('login');
-
-    //store what the user types
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [name, setName] = useState('')
-    const [confirmPassword, setConfirmPassword] = useState('')
+    const [name, setName] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
 
-    //login function from auth context
-    //const { login, isLoading } = useAuth();
-
-    // const handleLogin = async () => {
-    //     const result = await login
-    // }
-
-    // const handleSignUp
     const clearForm = () => {
         setEmail('');
         setPassword('');
@@ -38,117 +30,371 @@ export default function LoginForm() {
     const switchTab = (tab: 'login' | 'signup') => {
         setActiveTab(tab);
         clearForm();
-    }
-    return (
-        <View style={styles.container}>
-            <StatusBar barStyle="dark-content" />
-            <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => router.back()}
-            >
-                <Text style={styles.backButtonText}>Back</Text>
-            </TouchableOpacity>
-            <View style={styles.formContainer}>
-                <View style={styles.tabContainer}>
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'login' && styles.activeTab]}
-                        onPress={() => switchTab('login')}
-                    >
-                    <Text style={[styles.tabText, activeTab === 'login' && styles.activeTabText]}>
-                        Sign In
-                    </Text>
-                    </TouchableOpacity>
+    };
 
+    const handleSubmit = () => {
+        if (activeTab === 'login') {
+            Alert.alert('Login', `Email: ${email}`);
+        } else {
+            if (password !== confirmPassword) {
+                Alert.alert('Error', 'Passwords do not match');
+                return;
+            }
+            Alert.alert('Signup', `Name: ${name}, Email: ${email}`);
+        }
+    };
+
+    return (
+        <KeyboardAvoidingView 
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+            <StatusBar barStyle="light-content" />
+            
+            {/* Hero Section */}
+            <View style={styles.heroSection}>
+                <ImageBackground
+                    source={require('../../assets/images/Outdoorcycling-HannahCarr.jpg')}
+                    style={styles.heroImage}
+                    resizeMode="cover"
+                >
+                    <View style={styles.heroOverlay} />
+                    
+                    {/* Back Button */}
                     <TouchableOpacity
-                        style={[styles.tab, activeTab === 'signup' && styles.activeTab]}
-                        onPress={() => switchTab('signup')}
+                        style={styles.backButton}
+                        onPress={() => router.back()}
                     >
-                    <Text style={[styles.tabText, activeTab === 'signup' && styles.activeTabText]}>
-                        Sign Up
-                    </Text>
+                        <Text style={styles.backButtonText}>← Back</Text>
                     </TouchableOpacity>
-                </View>
-                <Text style={styles.title}>Welcome</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Email"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    placeholderTextColor="#999"
-                />
-                <TextInput
-                    style={styles.input}
-                    placeholder="Password"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                    placeholderTextColor="#999"
-                />
+                    
+                    {/* Hero Content */}
+                    <View style={styles.heroContent}>
+                        <Text style={styles.heroTitle}>FitPro</Text>
+                        <Text style={styles.heroSubtitle}>Your fitness journey starts here</Text>
+                    </View>
+                </ImageBackground>
             </View>
-        </View>
+
+            {/* Card Section */}
+            <View style={styles.cardSection}>
+                <View style={styles.card}>
+                    {/* Card Header */}
+                    <View style={styles.cardHeader}>
+                        <Text style={styles.cardTitle}>Welcome</Text>
+                    </View>
+
+                    {/* Tabs */}
+                    <View style={styles.tabContainer}>
+                        <TouchableOpacity
+                            style={[styles.tab, activeTab === 'login' && styles.activeTab]}
+                            onPress={() => switchTab('login')}
+                        >
+                            <Text style={[styles.tabText, activeTab === 'login' && styles.activeTabText]}>
+                                Sign In
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.tab, activeTab === 'signup' && styles.activeTab]}
+                            onPress={() => switchTab('signup')}
+                        >
+                            <Text style={[styles.tabText, activeTab === 'signup' && styles.activeTabText]}>
+                                Sign Up
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Form Inputs */}
+                    <View style={styles.formContainer}>
+                        {activeTab === 'signup' && (
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Full Name"
+                                value={name}
+                                onChangeText={setName}
+                                placeholderTextColor="#999"
+                            />
+                        )}
+
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Email"
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            placeholderTextColor="#999"
+                        />
+
+                        <TextInput
+                            style={styles.input}
+                            placeholder={activeTab === 'login' ? "Password" : "Password (8+ chars)"}
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry
+                            placeholderTextColor="#999"
+                        />
+
+                        {activeTab === 'signup' && (
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Confirm Password"
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                                secureTextEntry
+                                placeholderTextColor="#999"
+                            />
+                        )}
+
+                        {/* Submit Button */}
+                        <TouchableOpacity
+                            style={styles.submitButton}
+                            onPress={handleSubmit}
+                        >
+                            <Text style={styles.submitButtonText}>
+                                {activeTab === 'login' ? 'Sign In' : 'Create Account'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Forgot Password (Login only) */}
+                        {activeTab === 'login' && (
+                            <TouchableOpacity style={styles.forgotPassword}>
+                                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {/* Only show social login for login tab to save space */}
+                    {activeTab === 'login' && (
+                        <>
+                            {/* Social Login Divider */}
+                            <View style={styles.dividerContainer}>
+                                <View style={styles.divider} />
+                                <Text style={styles.dividerText}>Or continue with</Text>
+                                <View style={styles.divider} />
+                            </View>
+
+                            {/* Social Buttons */}
+                            <View style={styles.socialContainer}>
+                                <TouchableOpacity style={styles.socialButton}>
+                                    <Text style={styles.socialButtonText}>🍎 Apple</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.socialButton}>
+                                    <Text style={styles.socialButtonText}>📧 Google</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </>
+                    )}
+
+                    {/* Terms - compact version */}
+                    <Text style={styles.termsText}>
+                        By continuing, you agree to our{' '}
+                        <Text style={styles.termsLink}>Terms</Text> and{' '}
+                        <Text style={styles.termsLink}>Privacy Policy</Text>
+                    </Text>
+                </View>
+            </View>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#f8fafc',
+    },
+    
+    // Hero Section
+    heroSection: {
+        height: 200, // Smaller hero
+    },
+    heroImage: {
+        flex: 1,
+        justifyContent: 'space-between',
+    },
+    heroOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
     },
     backButton: {
         marginTop: 50,
         marginLeft: 20,
-        padding: 10
+        padding: 10,
+        zIndex: 10,
     },
     backButtonText: {
         fontSize: 16,
-        color: '#A6703A'
+        color: '#fff',
+        fontWeight: '600',
     },
-    formContainer: {
-        flex: 1,
+    heroContent: {
+        alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 40,
+        flex: 1,
+        zIndex: 1,
     },
-    title: {
-        fontSize: 32,
+    heroTitle: {
+        fontSize: 28,
         fontWeight: 'bold',
+        color: 'white',
+        marginBottom: 4,
+    },
+    heroSubtitle: {
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.9)',
         textAlign: 'center',
-        marginBottom: 40,
-        color: '#333'
     },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        padding: 15,
-        borderRadius: 10,
+    
+    // Card Section
+    cardSection: {
+        flex: 1,
+        paddingHorizontal: 24,
+        marginTop: -40,
+        zIndex: 2,
+        paddingBottom: 20,
+    },
+    card: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 20,
+        flex: 1,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 10,
+        },
+        shadowOpacity: 0.15,
+        shadowRadius: 25,
+        elevation: 15,
+    },
+    
+    // Card Header
+    cardHeader: {
+        alignItems: 'center',
         marginBottom: 20,
-        fontSize: 16,
-        backgroundColor: '#f9f9f9'
     },
+    cardTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#1f2937',
+    },
+    
+    // Tabs
     tabContainer: {
         flexDirection: 'row',
-        backgroundColor: '#f0f0f0',
-        borderRadius: 25,
+        backgroundColor: '#f3f4f6',
+        borderRadius: 8,
         padding: 4,
-        marginBottom: 30,
+        marginBottom: 20,
     },
     tab: {
         flex: 1,
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 20,
+        paddingVertical: 10,
         alignItems: 'center',
+        borderRadius: 6,
     },
     activeTab: {
-        backgroundColor: '#A6703A',
+        backgroundColor: 'white',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
     },
     tabText: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '600',
-        color: '#666',
+        color: '#6b7280',
     },
     activeTabText: {
-        color: 'white',
+        color: '#1f2937',
     },
-})
+    
+    // Form
+    formContainer: {
+        flex: 1,
+        justifyContent: 'flex-start',
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#d1d5db',
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
+        backgroundColor: 'white',
+        marginBottom: 12,
+    },
+    submitButton: {
+        backgroundColor: '#1f2937',
+        borderRadius: 8,
+        padding: 14,
+        alignItems: 'center',
+        marginTop: 8,
+        marginBottom: 12,
+    },
+    submitButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    forgotPassword: {
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    forgotPasswordText: {
+        fontSize: 14,
+        color: '#3b82f6',
+        fontWeight: '500',
+    },
+    
+    // Divider
+    dividerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    divider: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#e5e7eb',
+    },
+    dividerText: {
+        fontSize: 10,
+        color: '#6b7280',
+        marginHorizontal: 12,
+        textTransform: 'uppercase',
+    },
+    
+    // Social Buttons
+    socialContainer: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 12,
+    },
+    socialButton: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        padding: 10,
+        alignItems: 'center',
+        backgroundColor: 'white',
+    },
+    socialButtonText: {
+        fontSize: 12,
+        color: '#374151',
+        fontWeight: '500',
+    },
+    
+    // Terms
+    termsText: {
+        fontSize: 10,
+        color: '#6b7280',
+        textAlign: 'center',
+        lineHeight: 12,
+    },
+    termsLink: {
+        color: '#3b82f6',
+        fontWeight: '500',
+    },
+});
