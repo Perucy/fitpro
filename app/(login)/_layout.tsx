@@ -9,6 +9,8 @@ export default function LoginLayout() {
         >
             <Stack.Screen name="index" />
             <Stack.Screen name="form" />
+            <Stack.Screen name="auth" />
+            <Stack.Screen name="link" />
         </Stack>
     )
 }
