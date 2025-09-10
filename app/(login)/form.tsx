@@ -48,7 +48,8 @@ export default function LoginForm() {
     const handleSubmit = () => {
         if (activeTab === 'login') {
             handleLogin();
-            Alert.alert('Login', `Email: ${email}`);
+            router.push('/(login)/link')
+            //Alert.alert('Login', `Email: ${email}`);
         } else {
             if (password !== confirmPassword) {
                 Alert.alert('Error', 'Passwords do not match');
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
     backButtonText: {
         fontSize: 16,
         color: '#fff',
-        fontWeight: '600',
+        fontWeight: '800',
     },
 
     // Card Section
