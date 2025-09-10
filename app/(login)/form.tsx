@@ -9,9 +9,13 @@ import {
     StatusBar,
     ImageBackground,
     KeyboardAvoidingView,
-    Platform
+    Platform,
+    Dimensions
 } from 'react-native';
 import { router } from 'expo-router';
+import AppAuth from './auth';
+
+const { width, height } = Dimensions.get('window')
 
 export default function LoginForm() {
     const [activeTab, setActiveTab] = useState('login');
@@ -20,6 +24,15 @@ export default function LoginForm() {
     const [name, setName] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
+    const { login } = AppAuth();
+    const handleLogin = async () => {
+        const result = await login(email, password);
+        if (result.success){
+            console.log("✅Successful Login");
+        }else{
+            console.log("❌Didn't login");
+        }
+    }
     const clearForm = () => {
         setEmail('');
         setPassword('');
@@ -34,6 +47,7 @@ export default function LoginForm() {
 
     const handleSubmit = () => {
         if (activeTab === 'login') {
+            handleLogin();
             Alert.alert('Login', `Email: ${email}`);
         } else {
             if (password !== confirmPassword) {
@@ -55,7 +69,7 @@ export default function LoginForm() {
             <View style={styles.heroSection}>
                 <ImageBackground
                     source={require('../../assets/images/Outdoorcycling-HannahCarr.jpg')}
-                    style={styles.heroImage}
+                    style={styles.backgroundImage}
                     resizeMode="cover"
                 >
                     <View style={styles.heroOverlay} />
@@ -65,14 +79,9 @@ export default function LoginForm() {
                         style={styles.backButton}
                         onPress={() => router.back()}
                     >
-                        <Text style={styles.backButtonText}>← Back</Text>
+                        <Text style={styles.backButtonText}>Back</Text>
                     </TouchableOpacity>
                     
-                    {/* Hero Content */}
-                    <View style={styles.heroContent}>
-                        <Text style={styles.heroTitle}>FitPro</Text>
-                        <Text style={styles.heroSubtitle}>Your fitness journey starts here</Text>
-                    </View>
                 </ImageBackground>
             </View>
 
@@ -208,9 +217,12 @@ const styles = StyleSheet.create({
     heroSection: {
         height: 200, // Smaller hero
     },
-    heroImage: {
-        flex: 1,
-        justifyContent: 'space-between',
+    backgroundImage: {
+        width: width,
+        height: height,
+        position: 'absolute',
+        top: 0,
+        left: 0
     },
     heroOverlay: {
         ...StyleSheet.absoluteFillObject,
@@ -227,31 +239,14 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: '600',
     },
-    heroContent: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        flex: 1,
-        zIndex: 1,
-    },
-    heroTitle: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: 'white',
-        marginBottom: 4,
-    },
-    heroSubtitle: {
-        fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.9)',
-        textAlign: 'center',
-    },
-    
+
     // Card Section
     cardSection: {
         flex: 1,
         paddingHorizontal: 24,
         marginTop: -40,
         zIndex: 2,
-        paddingBottom: 20,
+        paddingBottom: 200,
     },
     card: {
         backgroundColor: 'white',
