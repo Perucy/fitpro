@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import Entypo from '@expo/vector-icons/Entypo';
 
 const { width, height } = Dimensions.get('window');
 
@@ -54,7 +55,14 @@ export default function AccLink() {
                     <TouchableOpacity
                         style={styles.spotifyButton}
                     >
-                        <Text style={styles.spotifyButtonText}>Link Spotify</Text>
+                        <Entypo name="spotify" size={32} color="black" />
+                        <Text style={styles.spotifyButtonText}>Connect Spotify</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.whoopButton}
+                    >
+                        <Entypo name="spotify" size={32} color="white" />
+                        <Text style={styles.whoopButtonText}>Connect Whoop</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -111,11 +119,39 @@ const styles = StyleSheet.create({
         fontWeight: '800',
     },
     spotifyButton: {
-        color: '#1ed760'
+        backgroundColor: '#1db954',
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
     },
     spotifyButtonText: {
-        fontSize: 16,
-        color: '#fff',
-        fontWeight: '300',
-    }
+        fontSize: 24,
+        color: '#000',
+        fontWeight: 'bold',
+        textAlign: 'center',
+        //marginLeft: 20,
+        // marginTop: 5,
+    },
+    whoopButton: {
+        backgroundColor: '#000000',
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+    },
+    whoopButtonText: {
+        fontSize: 24,
+        color: '#FFFFFF',
+        fontWeight: 'bold',
+        textAlign: 'center',
+        //marginLeft: 20,
+        // marginTop: 5,
+    },
 });
