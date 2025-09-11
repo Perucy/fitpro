@@ -10,9 +10,12 @@ import {
     ImageBackground,
     KeyboardAvoidingView,
     Platform,
-    Dimensions
+    Dimensions,
+    ScrollView
 } from 'react-native';
 import { router } from 'expo-router';
+import Entypo from '@expo/vector-icons/Entypo';
+import AntDesign from '@expo/vector-icons/AntDesign';
 import AppAuth from './auth';
 
 const { width, height } = Dimensions.get('window')
@@ -60,151 +63,163 @@ export default function LoginForm() {
     };
 
     return (
-        <KeyboardAvoidingView 
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+        <View style={styles.container}>
             <StatusBar barStyle="light-content" />
             
-            {/* Hero Section */}
-            <View style={styles.heroSection}>
-                <ImageBackground
-                    source={require('../../assets/images/Outdoorcycling-HannahCarr.jpg')}
-                    style={styles.backgroundImage}
-                    resizeMode="cover"
+            {/* Background Image - Fixed */}
+            <ImageBackground
+                source={require('../../assets/images/Outdoorcycling-HannahCarr.jpg')}
+                style={styles.backgroundImage}
+                resizeMode="cover"
+            >
+                {/* <View style={styles.heroOverlay} /> */}
+            </ImageBackground>
+
+            {/* Back Button - Fixed Position */}
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => router.back()}
+            >
+                <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
+
+            {/* Scrollable Content with Keyboard Avoidance */}
+            <KeyboardAvoidingView 
+                style={styles.keyboardAvoidingContainer}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+                <ScrollView 
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
                 >
-                    <View style={styles.heroOverlay} />
+                    {/* Spacer to push card down */}
+                    <View style={styles.spacer} />
                     
-                    {/* Back Button */}
-                    <TouchableOpacity
-                        style={styles.backButton}
-                        onPress={() => router.back()}
-                    >
-                        <Text style={styles.backButtonText}>Back</Text>
-                    </TouchableOpacity>
-                    
-                </ImageBackground>
-            </View>
+                    {/* Card */}
+                    <View style={styles.card}>
+                        {/* Card Header */}
+                        <View style={styles.cardHeader}>
+                            <Text style={styles.cardTitle}>Welcome</Text>
+                        </View>
 
-            {/* Card Section */}
-            <View style={styles.cardSection}>
-                <View style={styles.card}>
-                    {/* Card Header */}
-                    <View style={styles.cardHeader}>
-                        <Text style={styles.cardTitle}>Welcome</Text>
-                    </View>
+                        {/* Tabs */}
+                        <View style={styles.tabContainer}>
+                            <TouchableOpacity
+                                style={[styles.tab, activeTab === 'login' && styles.activeTab]}
+                                onPress={() => switchTab('login')}
+                            >
+                                <Text style={[styles.tabText, activeTab === 'login' && styles.activeTabText]}>
+                                    Sign In
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.tab, activeTab === 'signup' && styles.activeTab]}
+                                onPress={() => switchTab('signup')}
+                            >
+                                <Text style={[styles.tabText, activeTab === 'signup' && styles.activeTabText]}>
+                                    Sign Up
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
 
-                    {/* Tabs */}
-                    <View style={styles.tabContainer}>
-                        <TouchableOpacity
-                            style={[styles.tab, activeTab === 'login' && styles.activeTab]}
-                            onPress={() => switchTab('login')}
-                        >
-                            <Text style={[styles.tabText, activeTab === 'login' && styles.activeTabText]}>
-                                Sign In
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.tab, activeTab === 'signup' && styles.activeTab]}
-                            onPress={() => switchTab('signup')}
-                        >
-                            <Text style={[styles.tabText, activeTab === 'signup' && styles.activeTabText]}>
-                                Sign Up
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Form Inputs */}
-                    <View style={styles.formContainer}>
-                        {activeTab === 'signup' && (
+                        {/* Form Inputs */}
+                        <View style={styles.formContainer}>
+                            
                             <TextInput
                                 style={styles.input}
-                                placeholder="Full Name"
-                                value={name}
-                                onChangeText={setName}
+                                placeholder="Email"
+                                value={email}
+                                onChangeText={setEmail}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
                                 placeholderTextColor="#999"
                             />
-                        )}
 
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Email"
-                            value={email}
-                            onChangeText={setEmail}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            placeholderTextColor="#999"
-                        />
-
-                        <TextInput
-                            style={styles.input}
-                            placeholder={activeTab === 'login' ? "Password" : "Password (8+ chars)"}
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry
-                            placeholderTextColor="#999"
-                        />
-
-                        {activeTab === 'signup' && (
                             <TextInput
                                 style={styles.input}
-                                placeholder="Confirm Password"
-                                value={confirmPassword}
-                                onChangeText={setConfirmPassword}
+                                placeholder={activeTab === 'login' ? "Password" : "Password (8+ chars)"}
+                                autoComplete="off"
+                                textContentType="none"
+                                autoCorrect={false}
+                                spellCheck={false}
+                                value={password}
+                                onChangeText={setPassword}
                                 secureTextEntry
                                 placeholderTextColor="#999"
                             />
-                        )}
 
-                        {/* Submit Button */}
-                        <TouchableOpacity
-                            style={styles.submitButton}
-                            onPress={handleSubmit}
-                        >
-                            <Text style={styles.submitButtonText}>
-                                {activeTab === 'login' ? 'Sign In' : 'Create Account'}
-                            </Text>
-                        </TouchableOpacity>
+                            {activeTab === 'signup' && (
+                                <TextInput
+                                    style={styles.input}
+                                    autoComplete="off"
+                                    textContentType="none"
+                                    autoCorrect={false}
+                                    spellCheck={false}
+                                    placeholder="Confirm Password"
+                                    value={confirmPassword}
+                                    onChangeText={setConfirmPassword}
+                                    secureTextEntry
+                                    placeholderTextColor="#999"
+                                />
+                            )}
 
-                        {/* Forgot Password (Login only) */}
-                        {activeTab === 'login' && (
-                            <TouchableOpacity style={styles.forgotPassword}>
-                                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                            {/* Submit Button */}
+                            <TouchableOpacity
+                                style={styles.submitButton}
+                                onPress={handleSubmit}
+                            >
+                                <Text style={styles.submitButtonText}>
+                                    {activeTab === 'login' ? 'Sign In' : 'Create Account'}
+                                </Text>
                             </TouchableOpacity>
+
+                            {/* Forgot Password (Login only) */}
+                            {activeTab === 'login' && (
+                                <TouchableOpacity style={styles.forgotPassword}>
+                                    <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        {/* Only show social login for login tab to save space */}
+                        {activeTab === 'login' && (
+                            <>
+                                {/* Social Login Divider */}
+                                <View style={styles.dividerContainer}>
+                                    <View style={styles.divider} />
+                                    <Text style={styles.dividerText}>Or continue with</Text>
+                                    <View style={styles.divider} />
+                                </View>
+
+                                {/* Social Buttons */}
+                                <View style={styles.socialContainer}>
+                                    <TouchableOpacity style={styles.socialButton}>
+                                        <AntDesign name="apple1" size={24} color="black" />
+                                        <Text style={styles.socialButtonText}>Apple</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.socialButton}>
+                                        <AntDesign name="google" size={24} color="black" />
+                                        <Text style={styles.socialButtonText}>Google</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
                         )}
+
+                        {/* Terms - compact version */}
+                        <Text style={styles.termsText}>
+                            By continuing, you agree to our{' '}
+                            <Text style={styles.termsLink}>Terms</Text> and{' '}
+                            <Text style={styles.termsLink}>Privacy Policy</Text>
+                        </Text>
                     </View>
-
-                    {/* Only show social login for login tab to save space */}
-                    {activeTab === 'login' && (
-                        <>
-                            {/* Social Login Divider */}
-                            <View style={styles.dividerContainer}>
-                                <View style={styles.divider} />
-                                <Text style={styles.dividerText}>Or continue with</Text>
-                                <View style={styles.divider} />
-                            </View>
-
-                            {/* Social Buttons */}
-                            <View style={styles.socialContainer}>
-                                <TouchableOpacity style={styles.socialButton}>
-                                    <Text style={styles.socialButtonText}>🍎 Apple</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.socialButton}>
-                                    <Text style={styles.socialButtonText}>📧 Google</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </>
-                    )}
-
-                    {/* Terms - compact version */}
-                    <Text style={styles.termsText}>
-                        By continuing, you agree to our{' '}
-                        <Text style={styles.termsLink}>Terms</Text> and{' '}
-                        <Text style={styles.termsLink}>Privacy Policy</Text>
-                    </Text>
-                </View>
-            </View>
-        </KeyboardAvoidingView>
+                    
+                    {/* Bottom spacer for extra scroll room */}
+                    <View style={styles.bottomSpacer} />
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </View>
     );
 }
 
@@ -214,46 +229,49 @@ const styles = StyleSheet.create({
         backgroundColor: '#f8fafc',
     },
     
-    // Hero Section
-    heroSection: {
-        height: 200, // Smaller hero
-    },
+    // Background Image - Now absolutely positioned
     backgroundImage: {
-        width: width,
-        height: height,
         position: 'absolute',
         top: 0,
-        left: 0
+        left: 0,
+        width: width,
+        height: height,
     },
-    heroOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    },
+    
+    // Back Button - Fixed position
     backButton: {
-        marginTop: 50,
-        marginLeft: 20,
+        position: 'absolute',
+        top: 50,
+        left: 20,
         padding: 10,
         zIndex: 10,
     },
     backButtonText: {
         fontSize: 16,
         color: '#fff',
-        fontWeight: '800',
+        fontWeight: 'bold',
     },
 
-    // Card Section
-    cardSection: {
+    // Keyboard avoiding and scroll container
+    keyboardAvoidingContainer: {
         flex: 1,
-        paddingHorizontal: 24,
-        marginTop: -40,
-        zIndex: 2,
-        paddingBottom: 200,
     },
+    scrollContent: {
+        flexGrow: 1,
+        paddingHorizontal: 24,
+    },
+    spacer: {
+        height: 160, // Adjust this to control card position
+    },
+    bottomSpacer: {
+        height: 50, // Extra space at bottom for comfortable scrolling
+    },
+
+    // Card
     card: {
-        backgroundColor: 'white',
+        backgroundColor: 'rgba(255, 255, 255, 0.65)',
         borderRadius: 16,
         padding: 20,
-        flex: 1,
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
@@ -262,6 +280,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.15,
         shadowRadius: 25,
         elevation: 15,
+        // Remove flex: 1 to let card size itself based on content
     },
     
     // Card Header
@@ -306,10 +325,9 @@ const styles = StyleSheet.create({
         color: '#1f2937',
     },
     
-    // Form
+    // Form - Remove flex: 1 to prevent stretching
     formContainer: {
-        flex: 1,
-        justifyContent: 'flex-start',
+        // No flex here
     },
     input: {
         borderWidth: 1,
@@ -318,7 +336,7 @@ const styles = StyleSheet.create({
         padding: 12,
         fontSize: 16,
         backgroundColor: 'white',
-        marginBottom: 12,
+        marginBottom: 16, // Increased from 12 to give more space for password suggestions
     },
     submitButton: {
         backgroundColor: '#1f2937',
