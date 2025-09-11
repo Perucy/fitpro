@@ -10,7 +10,8 @@ import {
     ImageBackground,
     KeyboardAvoidingView,
     Platform,
-    Dimensions
+    Dimensions,
+    Image
 } from 'react-native';
 import { router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -52,18 +53,32 @@ export default function AccLink() {
                 </TouchableOpacity>    
             <View style={styles.cardSection}>
                 <View style={styles.card}>
-                    <TouchableOpacity
-                        style={styles.spotifyButton}
-                    >
-                        <Entypo name="spotify" size={32} color="black" />
-                        <Text style={styles.spotifyButtonText}>Connect Spotify</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.whoopButton}
-                    >
-                        <Entypo name="spotify" size={32} color="white" />
-                        <Text style={styles.whoopButtonText}>Connect Whoop</Text>
-                    </TouchableOpacity>
+                    <View style={styles.cardHeader}>
+                        <Text style={styles.cardTitle}>Connect Your Accounts</Text>
+                        <Text style={styles.cardSubtitle}>Link your favorite apps to get started</Text>
+                    </View>
+                    
+                    <View style={styles.buttonsContainer}>
+                        <TouchableOpacity
+                            style={styles.spotifyButton}
+                        >
+                            <Entypo name="spotify" size={32} color="black" />
+                            <Text style={styles.spotifyButtonText}>Connect Spotify</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity
+                            style={styles.whoopButton}
+                        >
+                            <Image source={require('../../assets/images/WHOOP_Puck_Black.png')} style={styles.whooplogo}/>
+                            <Text style={styles.whoopButtonText}>Connect Whoop</Text>
+                        </TouchableOpacity>
+                    </View>
+                    
+                    <View style={styles.cardFooter}>
+                        <TouchableOpacity style={styles.skipButton}>
+                            <Text style={styles.skipButtonText}>Skip for now</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </View>
         </View>
@@ -89,14 +104,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         marginTop: -40,
         zIndex: 2,
-        paddingBottom: 200,
+        paddingBottom: 300,
         paddingTop: 200,
     },
     card: {
         backgroundColor: 'rgba(255, 255, 255, 0.65)',
         borderRadius: 16,
-        borderColor: 'rgba(255, 255, 255, 0.2)', // Subtle border
-        padding: 20,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+        padding: 12,
         flex: 1,
         shadowColor: '#000',
         shadowOffset: {
@@ -106,6 +121,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.15,
         shadowRadius: 25,
         elevation: 15,
+        justifyContent: 'space-between', // Distribute content evenly
     },
     backButton: {
         marginTop: 50,
@@ -118,40 +134,89 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: '800',
     },
+    
+    // New card sections
+    cardHeader: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    cardTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#1f2937',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    cardSubtitle: {
+        fontSize: 16,
+        color: '#6b7280',
+        textAlign: 'center',
+    },
+    
+    // Buttons container with spacing
+    buttonsContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        gap: 24, // Space between buttons - you can adjust this value
+    },
+    
     spotifyButton: {
         backgroundColor: '#1db954',
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        borderRadius: 10,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderRadius: 12,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 10,
+        gap: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     spotifyButtonText: {
-        fontSize: 24,
+        fontSize: 20,
         color: '#000',
         fontWeight: 'bold',
-        textAlign: 'center',
-        //marginLeft: 20,
-        // marginTop: 5,
     },
     whoopButton: {
         backgroundColor: '#000000',
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        borderRadius: 10,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderRadius: 12,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 10,
+        gap: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     whoopButtonText: {
-        fontSize: 24,
+        fontSize: 20,
         color: '#FFFFFF',
         fontWeight: 'bold',
-        textAlign: 'center',
-        //marginLeft: 20,
-        // marginTop: 5,
+    },
+    whooplogo: {
+        width: 35,
+        height: 35,
+        aspectRatio: 1
+    },
+    
+    // Card footer
+    cardFooter: {
+        alignItems: 'center',
+        marginTop: 16, // Reduced from 20
+    },
+    skipButton: {
+        padding: 12,
+    },
+    skipButtonText: {
+        fontSize: 16,
+        color: '#6b7280',
+        fontWeight: '500',
     },
 });
