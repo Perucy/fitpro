@@ -11,12 +11,13 @@ import {
     KeyboardAvoidingView,
     Platform,
     Dimensions,
-    ScrollView
+    ScrollView,
+    ActivityIndicator
 } from 'react-native';
 import { router } from 'expo-router';
 import Entypo from '@expo/vector-icons/Entypo';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import AppAuth from './auth';
+import useAuth from './auth';
 
 const { width, height } = Dimensions.get('window')
 
@@ -24,23 +25,130 @@ export default function LoginForm() {
     const [activeTab, setActiveTab] = useState('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [name, setName] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<{[key: string]: string}>({});
 
-    const { login } = AppAuth();
-    const handleLogin = async () => {
-        const result = await login(email, password);
-        if (result.success){
-            console.log("✅Successful Login");
-        }else{
-            console.log("❌Didn't login");
+    const { login, register } = useAuth();
+
+    const validateEmail = (email: string): boolean => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
+    const validatePassword = (password: string): boolean => {
+        return password.length >= 8;
+    };
+
+    const validateLoginForm = (): boolean => {
+        const newErrors: {[key: string]: string} = {};
+
+        if (!email.trim()) {
+            newErrors.email = 'Email is required';
+        } else if (!validateEmail(email)) {
+            newErrors.email = 'Please enter a valid email address';
         }
-    }
+
+        if (!password) {
+            newErrors.password = 'Password is required';
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const validateRegisterForm = (): boolean => {
+        const newErrors: {[key: string]: string} = {};
+
+        if (!email.trim()) {
+            newErrors.email = 'Email is required';
+        } else if (!validateEmail(email)) {
+            newErrors.email = 'Please enter a valid email address';
+        }
+
+        if (!password) {
+            newErrors.password = 'Password is required';
+        } else if (!validatePassword(password)) {
+            newErrors.password = 'Password must be at least 8 characters';
+        }
+
+        if (!confirmPassword) {
+            newErrors.confirmPassword = 'Please confirm your password';
+        } else if (password !== confirmPassword) {
+            newErrors.confirmPassword = 'Passwords do not match';
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleLogin = async () => {
+        setErrors({});
+        
+        if (!validateLoginForm()) {
+            return;
+        }
+
+        setLoading(true);
+        const result = await login(email, password);
+        setLoading(false);
+
+        if (result.success) {
+            router.replace('/(login)/link'); // or wherever you want to navigate after login
+            console.log("✅ Successful Login");
+        } else {
+            Alert.alert('Login Failed', result.error);
+            console.log("❌ Login failed:", result.error);
+        }
+    };
+
+    const handleRegister = async () => {
+        setErrors({});
+
+        if (!validateRegisterForm()) {
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            const result = await register(email, password);
+
+            if (result.success) {
+                Alert.alert(
+                    'Registration Successful!',
+                    'Your account has been created successfully.',
+                    [
+                        {
+                            text: 'OK',
+                            onPress: () => router.replace('/(login)/link') // Navigate after registration
+                        }
+                    ]
+                );
+            } else {
+                Alert.alert('Registration Failed', result.error);
+            }
+        } catch (error) {
+            Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const clearError = (field: string) => {
+        if (errors[field]) {
+            setErrors(prev => ({
+                ...prev,
+                [field]: ''
+            }));
+        }
+    };
+
     const clearForm = () => {
         setEmail('');
         setPassword('');
-        setName('');
         setConfirmPassword('');
+        setErrors({});
     };
 
     const switchTab = (tab: 'login' | 'signup') => {
@@ -51,14 +159,8 @@ export default function LoginForm() {
     const handleSubmit = () => {
         if (activeTab === 'login') {
             handleLogin();
-            router.push('/(login)/link')
-            //Alert.alert('Login', `Email: ${email}`);
         } else {
-            if (password !== confirmPassword) {
-                Alert.alert('Error', 'Passwords do not match');
-                return;
-            }
-            Alert.alert('Signup', `Name: ${name}, Email: ${email}`);
+            handleRegister();
         }
     };
 
@@ -71,9 +173,7 @@ export default function LoginForm() {
                 source={require('../../assets/images/Outdoorcycling-HannahCarr.jpg')}
                 style={styles.backgroundImage}
                 resizeMode="cover"
-            >
-                {/* <View style={styles.heroOverlay} /> */}
-            </ImageBackground>
+            />
 
             {/* Back Button - Fixed Position */}
             <TouchableOpacity
@@ -128,51 +228,70 @@ export default function LoginForm() {
                         <View style={styles.formContainer}>
                             
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, errors.email && styles.inputError]}
                                 placeholder="Email"
                                 value={email}
-                                onChangeText={setEmail}
+                                onChangeText={(text) => {
+                                    setEmail(text);
+                                    clearError('email');
+                                }}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 placeholderTextColor="#999"
                             />
+                            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, errors.password && styles.inputError]}
                                 placeholder={activeTab === 'login' ? "Password" : "Password (8+ chars)"}
                                 autoComplete="off"
                                 textContentType="none"
                                 autoCorrect={false}
                                 spellCheck={false}
                                 value={password}
-                                onChangeText={setPassword}
+                                onChangeText={(text) => {
+                                    setPassword(text);
+                                    clearError('password');
+                                }}
                                 secureTextEntry
                                 placeholderTextColor="#999"
                             />
+                            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
 
                             {activeTab === 'signup' && (
-                                <TextInput
-                                    style={styles.input}
-                                    autoComplete="off"
-                                    textContentType="none"
-                                    autoCorrect={false}
-                                    spellCheck={false}
-                                    placeholder="Confirm Password"
-                                    value={confirmPassword}
-                                    onChangeText={setConfirmPassword}
-                                    secureTextEntry
-                                    placeholderTextColor="#999"
-                                />
+                                <>
+                                    <TextInput
+                                        style={[styles.input, errors.confirmPassword && styles.inputError]}
+                                        autoComplete="off"
+                                        textContentType="none"
+                                        autoCorrect={false}
+                                        spellCheck={false}
+                                        placeholder="Confirm Password"
+                                        value={confirmPassword}
+                                        onChangeText={(text) => {
+                                            setConfirmPassword(text);
+                                            clearError('confirmPassword');
+                                        }}
+                                        secureTextEntry
+                                        placeholderTextColor="#999"
+                                    />
+                                    {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+                                </>
                             )}
 
                             {/* Submit Button */}
                             <TouchableOpacity
-                                style={styles.submitButton}
+                                style={[styles.submitButton, loading && styles.buttonDisabled]}
                                 onPress={handleSubmit}
+                                disabled={loading}
                             >
-                                <Text style={styles.submitButtonText}>
-                                    {activeTab === 'login' ? 'Sign In' : 'Create Account'}
-                                </Text>
+                                {loading ? (
+                                    <ActivityIndicator color="#fff" size="small" />
+                                ) : (
+                                    <Text style={styles.submitButtonText}>
+                                        {activeTab === 'login' ? 'Sign In' : 'Create Account'}
+                                    </Text>
+                                )}
                             </TouchableOpacity>
 
                             {/* Forgot Password (Login only) */}
@@ -261,10 +380,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     spacer: {
-        height: 160, // Adjust this to control card position
+        height: 160,
     },
     bottomSpacer: {
-        height: 50, // Extra space at bottom for comfortable scrolling
+        height: 50,
     },
 
     // Card
@@ -280,7 +399,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.15,
         shadowRadius: 25,
         elevation: 15,
-        // Remove flex: 1 to let card size itself based on content
     },
     
     // Card Header
@@ -325,7 +443,7 @@ const styles = StyleSheet.create({
         color: '#1f2937',
     },
     
-    // Form - Remove flex: 1 to prevent stretching
+    // Form
     formContainer: {
         // No flex here
     },
@@ -336,7 +454,16 @@ const styles = StyleSheet.create({
         padding: 12,
         fontSize: 16,
         backgroundColor: 'white',
-        marginBottom: 16, // Increased from 12 to give more space for password suggestions
+        marginBottom: 8,
+    },
+    inputError: {
+        borderColor: '#ff4757',
+    },
+    errorText: {
+        color: '#ff4757',
+        fontSize: 12,
+        marginBottom: 12,
+        marginTop: -4,
     },
     submitButton: {
         backgroundColor: '#1f2937',
@@ -345,6 +472,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: 8,
         marginBottom: 12,
+    },
+    buttonDisabled: {
+        opacity: 0.7,
     },
     submitButtonText: {
         color: 'white',
