@@ -17,7 +17,7 @@ import {
 import { router } from 'expo-router';
 import Entypo from '@expo/vector-icons/Entypo';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import useAuth from './auth';
+import useAppAuth from '../../hooks/useAppAuth';
 
 const { width, height } = Dimensions.get('window')
 
@@ -29,7 +29,7 @@ export default function LoginForm() {
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<{[key: string]: string}>({});
 
-    const { login, register } = useAuth();
+    const { login, register } = useAppAuth();
 
     const validateEmail = (email: string): boolean => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
