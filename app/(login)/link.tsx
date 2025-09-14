@@ -2,24 +2,25 @@ import React, { useState } from "react";
 import {
     View,
     Text, 
-    TextInput,
     TouchableOpacity,
     StyleSheet,
     Alert,
     StatusBar,
-    ImageBackground,
-    KeyboardAvoidingView,
-    Platform,
     Dimensions,
-    Image
+    Image,
+    ActivityIndicator
 } from 'react-native';
 import { router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import Entypo from '@expo/vector-icons/Entypo';
+import { useWhoop } from '../../hooks/useWhoopAuth'; // Import your Whoop hook
 
 const { width, height } = Dimensions.get('window');
 
 export default function AccLink() {
+    const { isLinked, isLoading, linkWhoop, unlinkWhoop } = useWhoop();
+    const [connecting, setConnecting] = useState(false);
+
     const player = useVideoPlayer(
         require('../../assets/videos/FitPro_Login_Video.mp4'), player => {
         player.loop = true;
@@ -27,8 +28,54 @@ export default function AccLink() {
         player.playbackRate = 1.0;
         player.play();
     });
-    return (
+
+    const handleWhoopPress = async () => {
+        if (isLinked) {
+            // Show options to disconnect or continue
+            Alert.alert(
+                "Whoop Connected",
+                "Your Whoop account is already connected.",
+                [
+                    { text: "Disconnect", onPress: handleWhoopDisconnect },
+                    { text: "Continue", onPress: () => router.replace('/(tabs)/coach') }
+                ]
+            );
+        } else {
+            // Start connection process
+            await handleWhoopConnect();
+        }
+    };
+
+    const handleWhoopConnect = async () => {
+        setConnecting(true);
+        try {
+            await linkWhoop();
+            Alert.alert(
+                "Success!",
+                "Whoop account connected successfully",
+                [{ text: "OK", onPress: () => router.replace('/(tabs)/coach') }]
+            );
+        } catch (error) {
+            Alert.alert(
+                "Connection Failed",
+                "Failed to connect Whoop account. Please try again.",
+                [{ text: "OK" }]
+            );
+        } finally {
+            setConnecting(false);
+        }
+    };
+
+    const handleWhoopDisconnect = async () => {
+        try {
+            await unlinkWhoop();
+            Alert.alert("Disconnected", "Whoop account disconnected");
+        } catch (error) {
+            Alert.alert("Error", "Failed to disconnect Whoop account");
+        }
+    };
     
+    return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
             <VideoView
@@ -41,16 +88,15 @@ export default function AccLink() {
                 contentFit="cover"
                 nativeControls={false}
                 pointerEvents="none"
+            />
+            
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => router.back()}
             >
-                
-            </VideoView>
-            {/* Back Button */}
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => router.back()}
-                >
-                    <Text style={styles.backButtonText}>Back</Text>
-                </TouchableOpacity>    
+                <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>    
+
             <View style={styles.cardSection}>
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
@@ -61,21 +107,42 @@ export default function AccLink() {
                     <View style={styles.buttonsContainer}>
                         <TouchableOpacity
                             style={styles.spotifyButton}
+                            onPress={() => {
+                                // TODO: Add Spotify connection logic
+                                Alert.alert("Coming Soon", "Spotify integration coming soon!");
+                            }}
                         >
                             <Entypo name="spotify" size={32} color="black" />
                             <Text style={styles.spotifyButtonText}>Connect Spotify</Text>
                         </TouchableOpacity>
                         
                         <TouchableOpacity
-                            style={styles.whoopButton}
+                            style={[
+                                styles.whoopButton,
+                                isLinked && styles.whoopButtonConnected
+                            ]}
+                            onPress={handleWhoopPress}
+                            disabled={connecting || isLoading}
                         >
-                            <Image source={require('../../assets/images/WHOOP_Puck_Black.png')} style={styles.whooplogo}/>
-                            <Text style={styles.whoopButtonText}>Connect Whoop</Text>
+                            <Image 
+                                source={require('../../assets/images/WHOOP_Puck_Black.png')} 
+                                style={styles.whooplogo}
+                            />
+                            {connecting || isLoading ? (
+                                <ActivityIndicator color="white" size="small" />
+                            ) : (
+                                <Text style={styles.whoopButtonText}>
+                                    {isLinked ? 'Whoop Connected ✓' : 'Connect Whoop'}
+                                </Text>
+                            )}
                         </TouchableOpacity>
                     </View>
                     
                     <View style={styles.cardFooter}>
-                        <TouchableOpacity style={styles.skipButton}>
+                        <TouchableOpacity 
+                            style={styles.skipButton}
+                            onPress={() => router.replace('/(tabs)/coach')}
+                        >
                             <Text style={styles.skipButtonText}>Skip for now</Text>
                         </TouchableOpacity>
                     </View>
@@ -84,6 +151,8 @@ export default function AccLink() {
         </View>
     );
 }
+
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -205,7 +274,9 @@ const styles = StyleSheet.create({
         height: 35,
         aspectRatio: 1
     },
-    
+    whoopButtonConnected: {
+        backgroundColor: '#34C759', // Green when connected
+    },
     // Card footer
     cardFooter: {
         alignItems: 'center',
