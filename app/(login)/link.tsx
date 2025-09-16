@@ -141,7 +141,7 @@ export default function AccLink() {
                     <View style={styles.cardFooter}>
                         <TouchableOpacity 
                             style={styles.skipButton}
-                            onPress={() => router.replace('/(tabs)/coach')}
+                            onPress={() => router.replace('/(tabs)')}
                         >
                             <Text style={styles.skipButtonText}>Skip for now</Text>
                         </TouchableOpacity>
