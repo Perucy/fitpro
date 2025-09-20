@@ -13,12 +13,14 @@ import {
 import { router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import Entypo from '@expo/vector-icons/Entypo';
-import { useWhoop } from '../../hooks/useWhoopAuth'; // Import your Whoop hook
+import { useWhoop } from '../../hooks/useWhoopAuth'; 
+import { useSpotify } from '../../hooks/useSpotifyAuth';
 
 const { width, height } = Dimensions.get('window');
 
 export default function AccLink() {
     const { isLinked, isLoading, linkWhoop, unlinkWhoop } = useWhoop();
+    const { isSpotifyLinked, isSpotifyLoading, linkSpotify, unlinkSpotify } = useSpotify();
     const [connecting, setConnecting] = useState(false);
 
     const player = useVideoPlayer(
@@ -46,6 +48,21 @@ export default function AccLink() {
         }
     };
 
+    const handleSpotifyPress = async () => {
+        if (isSpotifyLinked) {
+            Alert.alert(
+                "Spotify Connected",
+                "Your Spotify account is already connected.",
+                [
+                    { text: "Disconnect", onPress: handleSpotifyDisconnect },
+                    { text: "Continue", onPress: () => router.replace('/(tabs)') }
+                ]
+            );
+        } else {
+            await handleSpotifyConnect();
+        }
+    };
+
     const handleWhoopConnect = async () => {
         setConnecting(true);
         try {
@@ -66,12 +83,41 @@ export default function AccLink() {
         }
     };
 
+    const handleSpotifyConnect = async () => {
+        setConnecting(true);
+        try {
+            await linkSpotify();
+            Alert.alert(
+                "Success!",
+                "Spotify account connected successfully",
+                [{ text: "OK", onPress: () => router.replace('/(tabs)') }]
+            );
+        } catch (error) {
+            Alert.alert(
+                "Connection Failed",
+                "Failed to connect Spotify account. Please try again.",
+                [{ text: "OK" }]
+            );
+        } finally {
+            setConnecting(false);
+        }
+    };
+
     const handleWhoopDisconnect = async () => {
         try {
             await unlinkWhoop();
             Alert.alert("Disconnected", "Whoop account disconnected");
         } catch (error) {
             Alert.alert("Error", "Failed to disconnect Whoop account");
+        }
+    };
+
+    const handleSpotifyDisconnect = async () => {
+        try {
+            await unlinkSpotify();
+            Alert.alert("Disconnected", "Spotify account disconnected");
+        } catch (error) {
+            Alert.alert("Error", "Failed to disconnect Spotify account");
         }
     };
     
@@ -106,14 +152,21 @@ export default function AccLink() {
                     
                     <View style={styles.buttonsContainer}>
                         <TouchableOpacity
-                            style={styles.spotifyButton}
-                            onPress={() => {
-                                // TODO: Add Spotify connection logic
-                                Alert.alert("Coming Soon", "Spotify integration coming soon!");
-                            }}
+                            style={[
+                                styles.spotifyButton,
+                                isSpotifyLinked && styles.spotifyButtonConnected
+                            ]}
+                            onPress={handleSpotifyPress}
+                            disabled={connecting || isSpotifyLoading}
                         >
                             <Entypo name="spotify" size={32} color="black" />
-                            <Text style={styles.spotifyButtonText}>Connect Spotify</Text>
+                            {connecting || isSpotifyLoading ? (
+                                <ActivityIndicator color="black" size="small" />
+                            ) : (
+                                <Text style={styles.spotifyButtonText}>
+                                    {isSpotifyLinked ? 'Spotify Connected ✓' : 'Connect Spotify'}
+                                </Text>
+                            )}
                         </TouchableOpacity>
                         
                         <TouchableOpacity
@@ -151,7 +204,6 @@ export default function AccLink() {
         </View>
     );
 }
-
 
 const styles = StyleSheet.create({
     container: {
@@ -248,6 +300,9 @@ const styles = StyleSheet.create({
         fontSize: 20,
         color: '#000',
         fontWeight: 'bold',
+    },
+    spotifyButtonConnected: {
+        backgroundColor: '#34C759', // Green when connected
     },
     whoopButton: {
         backgroundColor: '#000000',
