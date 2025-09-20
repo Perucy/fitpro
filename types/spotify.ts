@@ -8,7 +8,7 @@ export interface SpotifyUser {
     product?: string;
 }
 
-export interface AuthResult {
+export interface SpotifyAuthResult {
     success: boolean;
     user_id: string;
     user_info: SpotifyUser;
