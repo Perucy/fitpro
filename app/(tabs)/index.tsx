@@ -1,9 +1,62 @@
-import React from "react";
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import SpotifyService from "../../services/SpotifyService";
 
 export default function HomeScreen() {
+  const [spotifyData, setSpotifyData] = useState({
+    isSpotifyConnected: false,
+    currentTrack: null,
+    recentPlaylists: [],
+    loading: true
+  });
+
+  useEffect(() => {
+    fetchSpotifyData();
+
+    const interval = setInterval(() => {
+      if (spotifyData.isSpotifyConnected) {
+        fetchSpotifyData();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [spotifyData.isSpotifyConnected]);
+
+  const fetchSpotifyData = async () => {
+    try {
+      const status = await SpotifyService.spotify_checkStatus();
+      // console.log('Spotify status:', status);
+
+      if (status.connected) {
+        const [profile, playlists, currentplaying] = await Promise.all([
+          SpotifyService.spotify_getProfile(),
+          SpotifyService.spotify_getPlaylist(),
+          SpotifyService.spotify_getCurrentlyPlaying()
+        ]);
+
+        // console.log('Spotify current playing:', currentplaying);
+        // console.log('Spotify playlists:', playlists);
+
+        setSpotifyData({
+          isSpotifyConnected: true,
+          currentTrack: currentplaying,
+          recentPlaylists: playlists?.items?.slice(0, 5) || [],
+          loading: false
+        });
+      } else {
+        setSpotifyData({
+          isSpotifyConnected: false,
+          currentTrack: null,
+          recentPlaylists: [],
+          loading: true
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching Spotify data:', error);
+      setSpotifyData(prev => ({ ...prev, loading: false }));
+    }
+  };
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -29,55 +82,74 @@ export default function HomeScreen() {
             <View style={styles.currentTrackRow}>
               {/* Album Art */}
               <View style={styles.albumArt}>
-                <Text style={styles.albumPlaceholder}>🎵</Text>
+                {spotifyData.isSpotifyConnected && 
+                  spotifyData.currentTrack &&
+                  spotifyData.currentTrack.item &&
+                  spotifyData.currentTrack.item.album.images &&
+                  spotifyData.currentTrack.item.album.images.length > 0 ? (
+                    <Image
+                      source={{ uri: spotifyData.currentTrack.item.album.images[0].url }}
+                      style={styles.albumImage}
+                    />
+                  ) : (
+                    <Text style={styles.albumPlaceholder}>🎵</Text>
+                  )}
               </View>
               
               {/* Song Details */}
               <View style={styles.songDetails}>
-                <Text style={styles.songName}>High Energy Workout</Text>
-                <Text style={styles.artistName}>Workout Playlist</Text>
-                <Text style={styles.songBPM}>140 BPM • Perfect for 8.2 strain</Text>
+                {spotifyData.isSpotifyConnected ? (
+                  spotifyData.currentTrack && spotifyData.currentTrack.item ? (
+                    <>
+                      <Text style={styles.songName}>
+                        {spotifyData.currentTrack.item.name || 'Unknown Track'}
+                      </Text>
+                      <Text style={styles.artistName}>
+                        {spotifyData.currentTrack.item.artists?.[0]?.name || 'Unknown Artist'}
+                      </Text>
+                      <Text style={styles.songBPM}>
+                        {spotifyData.currentTrack.item.album?.name || 'Unknown Album'}
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.songName}>No music playing</Text>
+                      <Text style={styles.artistName}>Start playing on Spotify</Text>
+                      <Text style={styles.songBPM}>Track info will appear here</Text>
+                    </>
+                  )
+                ) : (
+                  <>
+                    <Text style={styles.songName}>Connect Spotify</Text>
+                    <Text style={styles.artistName}>Link your account to see music</Text>
+                    <Text style={styles.songBPM}>Tap to connect</Text>
+                  </>
+                )}
               </View>
             </View>
           </View>
             <View style={styles.recentPlaylists}>
               <Text style={styles.sectionTitle}>Recent Playlists</Text>
-              
+
+              {/*playlist row*/}
               <View style={styles.playlistsRow}>
-                <View style={styles.playlistItem}>
-                  <View style={styles.playlistArt}>
-                    <Text style={styles.playlistPlaceholder}>🏃</Text>
+                {spotifyData.recentPlaylists.map((playlist, index) => (
+                  <View key={playlist.id} style={styles.playlistItem}>
+                    <View style={styles.playlistArt}>
+                      {playlist.images && playlist.images.length > 0 ? (
+                        <Image
+                          source={{ uri: playlist.images[0].url }}
+                          style={styles.playlistImage}
+                        />
+                      ) : (
+                        <Text style={styles.playlistPlaceholder}>🎵</Text>
+                      )}
+                    </View>
+                    <Text style={styles.playlistName} numberOfLines={1}>
+                      {playlist.name}
+                    </Text>
                   </View>
-                  <Text style={styles.playlistName}>Running</Text>
-                </View>
-
-                <View style={styles.playlistItem}>
-                  <View style={styles.playlistArt}>
-                    <Text style={styles.playlistPlaceholder}>🔥</Text>
-                  </View>
-                  <Text style={styles.playlistName}>HIIT</Text>
-                </View>
-
-                <View style={styles.playlistItem}>
-                  <View style={styles.playlistArt}>
-                    <Text style={styles.playlistPlaceholder}>🧘</Text>
-                  </View>
-                  <Text style={styles.playlistName}>Yoga</Text>
-                </View>
-
-                <View style={styles.playlistItem}>
-                  <View style={styles.playlistArt}>
-                    <Text style={styles.playlistPlaceholder}>💪</Text>
-                  </View>
-                  <Text style={styles.playlistName}>Strength</Text>
-                </View>
-
-                <View style={styles.playlistItem}>
-                  <View style={styles.playlistArt}>
-                    <Text style={styles.playlistPlaceholder}>🎵</Text>
-                  </View>
-                  <Text style={styles.playlistName}>Chill</Text>
-                </View>
+                ))}
               </View>
             </View>
         </View>
@@ -212,6 +284,11 @@ const styles = StyleSheet.create({
   currentlyPlaying: {
     marginBottom: 24,
   },
+  albumImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+  },
   sectionTitle: {
     color: '#FFFF',
     fontSize: 18,
@@ -312,6 +389,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  playlistImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
   },
   coachSection: {
     marginBottom: 20,
