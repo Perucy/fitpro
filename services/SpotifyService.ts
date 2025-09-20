@@ -141,6 +141,26 @@ class SpotifyService {
             throw error;
         }
     }
+    async spotify_getCurrentlyPlaying(): Promise<any> {
+        try {
+            const token = await this.getAuthToken();
+            
+            const response = await fetch(`${this.baseURL}/spotify/currently-playing`, {
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                return await response.json();
+            }
+            return null;
+        } catch (error) {
+            console.error('Spotify currently playing fetch error:', error);
+            return null;
+        }
+    }
     // Disconnect Spotify using your backend endpoint
     async spotify_disconnect(): Promise<boolean> {
         try {
