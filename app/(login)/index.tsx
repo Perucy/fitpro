@@ -39,7 +39,7 @@ export default function AppPage() {
                 pointerEvents="none"
             />
             <TouchableOpacity style={styles.overlayButton}
-                onPress={() => router.push('/(tabs)')}>
+                onPress={() => router.push('/(login)/form')}>
                 <Text style={styles.buttonText}>Sign In</Text>
             </TouchableOpacity>
         </View>
