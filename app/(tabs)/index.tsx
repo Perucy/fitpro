@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, AppState } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import SpotifyService from "../../services/SpotifyService";
 
@@ -7,49 +7,79 @@ export default function HomeScreen() {
   const [spotifyData, setSpotifyData] = useState({
     isSpotifyConnected: false,
     currentTrack: null,
-    recentPlaylists: [],
+    recentAlbums: [],
     loading: true
   });
 
   useEffect(() => {
     fetchSpotifyData();
 
+    // Smart polling - faster when music is playing, slower when not
+    const isPlaying = spotifyData.currentTrack?.is_playing;
     const interval = setInterval(() => {
       if (spotifyData.isSpotifyConnected) {
         fetchSpotifyData();
       }
-    }, 30000);
+    }, isPlaying ? 3000 : 10000); // 3s when playing, 10s when paused
 
     return () => clearInterval(interval);
+  }, [spotifyData.isSpotifyConnected, spotifyData.currentTrack?.is_playing]);
+
+  // Update when app comes into focus
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState) => {
+      if (nextAppState === 'active' && spotifyData.isSpotifyConnected) {
+        fetchSpotifyData();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => subscription?.remove();
   }, [spotifyData.isSpotifyConnected]);
 
   const fetchSpotifyData = async () => {
     try {
       const status = await SpotifyService.spotify_checkStatus();
-      // console.log('Spotify status:', status);
 
       if (status.connected) {
-        const [profile, playlists, currentplaying] = await Promise.all([
+        const [profile, recentlyPlayed, currentplaying] = await Promise.all([
           SpotifyService.spotify_getProfile(),
-          SpotifyService.spotify_getPlaylist(),
+          SpotifyService.spotify_getRecentlyPlayed(),
           SpotifyService.spotify_getCurrentlyPlaying()
         ]);
 
-        // console.log('Spotify current playing:', currentplaying);
-        // console.log('Spotify playlists:', playlists);
+        // Extract unique albums from recently played tracks
+        let recentAlbums = [];
+        if (recentlyPlayed && recentlyPlayed.items) {
+          const albumMap = new Map();
+          recentlyPlayed.items.forEach(item => {
+            const album = item.track.album;
+            if (!albumMap.has(album.id)) {
+              albumMap.set(album.id, {
+                id: album.id,
+                name: album.name,
+                images: album.images,
+                artist: album.artists[0]?.name
+              });
+            }
+          });
+          recentAlbums = Array.from(albumMap.values()).slice(0, 5);
+        }
 
+        // Always use real data - no placeholders
         setSpotifyData({
           isSpotifyConnected: true,
-          currentTrack: currentplaying,
-          recentPlaylists: playlists?.items?.slice(0, 5) || [],
+          currentTrack: currentplaying, // Can be null if nothing playing
+          recentAlbums: recentAlbums, // Real albums or empty array
           loading: false
         });
       } else {
         setSpotifyData({
           isSpotifyConnected: false,
           currentTrack: null,
-          recentPlaylists: [],
-          loading: true
+          recentAlbums: [],
+          loading: false
         });
       }
     } catch (error) {
@@ -57,8 +87,62 @@ export default function HomeScreen() {
       setSpotifyData(prev => ({ ...prev, loading: false }));
     }
   };
+
+  // Render album items with only real data
+  const renderAlbumItems = () => {
+    if (spotifyData.loading) {
+      return (
+        <View style={styles.noAlbums}>
+          <Text style={styles.noAlbumsText}>Loading recent music...</Text>
+        </View>
+      );
+    }
+
+    if (!spotifyData.isSpotifyConnected) {
+      return (
+        <View style={styles.noAlbums}>
+          <Text style={styles.noAlbumsText}>Connect Spotify to view recent albums</Text>
+        </View>
+      );
+    }
+
+    if (!spotifyData.recentAlbums || spotifyData.recentAlbums.length === 0) {
+      return (
+        <View style={styles.noAlbums}>
+          <Text style={styles.noAlbumsText}>No recent albums found. Play some music!</Text>
+        </View>
+      );
+    }
+
+    // Always show real album data
+    return (
+      <View style={styles.albumsRow}>
+        {spotifyData.recentAlbums.map((album, index) => (
+          <View key={album.id} style={styles.albumItem}>
+            <View style={styles.albumArtContainer}>
+              {album.images && album.images.length > 0 ? (
+                <Image
+                  source={{ uri: album.images[0].url }}
+                  style={styles.albumImage}
+                />
+              ) : (
+                <Text style={styles.albumPlaceholder}>🎵</Text>
+              )}
+            </View>
+            <Text style={styles.albumName} numberOfLines={2}>
+              {album.name}
+            </Text>
+            <Text style={styles.albumArtist} numberOfLines={1}>
+              {album.artist}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.greeting}>Hey, Perucy!</Text>
@@ -78,37 +162,37 @@ export default function HomeScreen() {
           <View style={styles.currentlyPlaying}>
             <Text style={styles.sectionTitle}>🎵 Currently Playing</Text>
             
-            {/* Album Art + Song Info Row */}
             <View style={styles.currentTrackRow}>
-              {/* Album Art */}
-              <View style={styles.albumArt}>
+              <View style={styles.currentAlbumArt}>
                 {spotifyData.isSpotifyConnected && 
                   spotifyData.currentTrack &&
                   spotifyData.currentTrack.item &&
+                  spotifyData.currentTrack.item.album &&
                   spotifyData.currentTrack.item.album.images &&
                   spotifyData.currentTrack.item.album.images.length > 0 ? (
                     <Image
                       source={{ uri: spotifyData.currentTrack.item.album.images[0].url }}
-                      style={styles.albumImage}
+                      style={styles.currentAlbumImage}
                     />
                   ) : (
-                    <Text style={styles.albumPlaceholder}>🎵</Text>
+                    <Text style={styles.currentAlbumPlaceholder}>
+                      {spotifyData.isSpotifyConnected ? '⏸️' : '🎵'}
+                    </Text>
                   )}
               </View>
               
-              {/* Song Details */}
               <View style={styles.songDetails}>
                 {spotifyData.isSpotifyConnected ? (
                   spotifyData.currentTrack && spotifyData.currentTrack.item ? (
                     <>
                       <Text style={styles.songName}>
-                        {spotifyData.currentTrack.item.name || 'Unknown Track'}
+                        {spotifyData.currentTrack.item.name}
                       </Text>
                       <Text style={styles.artistName}>
-                        {spotifyData.currentTrack.item.artists?.[0]?.name || 'Unknown Artist'}
+                        {spotifyData.currentTrack.item.artists?.[0]?.name}
                       </Text>
                       <Text style={styles.songBPM}>
-                        {spotifyData.currentTrack.item.album?.name || 'Unknown Album'}
+                        {spotifyData.currentTrack.item.album?.name}
                       </Text>
                     </>
                   ) : (
@@ -128,31 +212,13 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
-            <View style={styles.recentPlaylists}>
-              <Text style={styles.sectionTitle}>Recent Playlists</Text>
-
-              {/*playlist row*/}
-              <View style={styles.playlistsRow}>
-                {spotifyData.recentPlaylists.map((playlist, index) => (
-                  <View key={playlist.id} style={styles.playlistItem}>
-                    <View style={styles.playlistArt}>
-                      {playlist.images && playlist.images.length > 0 ? (
-                        <Image
-                          source={{ uri: playlist.images[0].url }}
-                          style={styles.playlistImage}
-                        />
-                      ) : (
-                        <Text style={styles.playlistPlaceholder}>🎵</Text>
-                      )}
-                    </View>
-                    <Text style={styles.playlistName} numberOfLines={1}>
-                      {playlist.name}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
+          
+          <View style={styles.recentAlbums}>
+            <Text style={styles.sectionTitle}>Recent Albums</Text>
+            {renderAlbumItems()}
+          </View>
         </View>
+
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statIcon}>🏃‍♂️</Text>
@@ -180,14 +246,12 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Goals</Text>
           </View>
         </View>
+        
         <View style={styles.coachSection}>
           <View style={styles.coachRow}>
-            {/* Coach Avatar */}
             <View style={styles.coachAvatar}>
               <Text style={styles.coachIcon}>🤖</Text>
             </View>
-            
-            {/* Coach Message */}
             <View style={styles.coachMessageContainer}>
               <View style={styles.coachBubble}>
                 <Text style={styles.coachMessage}>
@@ -198,7 +262,7 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
-        {/* Quick Actions */}
+        
         <View style={styles.quickActions}>
           <Text style={styles.actionTitle}>Quick Actions</Text>
           <View style={styles.actionRow}>
@@ -213,18 +277,22 @@ export default function HomeScreen() {
           </View>
         </View>        
       </View>
-      {/* Start Training Button */}
+      
       <View style={styles.buttonContainer}>
         <Text style={styles.startButton}>START TRAINING</Text>
       </View>
-    </View>
+    </ScrollView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000'
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 120,
   },
   header: {
     backgroundColor: '#3B82F6',
@@ -270,7 +338,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-    // paddingBottom: 0,
   },
   musicCard: {
     backgroundColor: '#1F2937',
@@ -279,12 +346,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#374151',
     marginBottom: 16,
-    minHeight: 100,
   },
   currentlyPlaying: {
     marginBottom: 24,
   },
-  albumImage: {
+  currentAlbumImage: {
     width: 60,
     height: 60,
     borderRadius: 8,
@@ -330,7 +396,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-  albumArt: {
+  currentAlbumArt: {
     width: 60,
     height: 60,
     backgroundColor: '#374151',
@@ -339,8 +405,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  albumPlaceholder: {
+  currentAlbumPlaceholder: {
     fontSize: 24,
+    color: '#9CA3AF',
   },
   songDetails: {
     flex: 1,
@@ -360,40 +427,64 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 12,
   },
-  recentPlaylists: {
+  recentAlbums: {
     marginTop: 20,
   },
-  playlistsRow: {
+  albumsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 8,
+    minHeight: 100,
   },
-  playlistItem: {
+  albumItem: {
     alignItems: 'center',
     flex: 1,
+    marginHorizontal: 4,
+    maxWidth: 70,
   },
-  playlistArt: {
+  albumArtContainer: {
     width: 50,
     height: 50,
     backgroundColor: '#374151',
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  playlistPlaceholder: {
+  albumPlaceholder: {
     fontSize: 20,
+    color: '#9CA3AF',
   },
-  playlistName: {
+  albumName: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 9,
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '600',
+    lineHeight: 11,
+    marginBottom: 2,
   },
-  playlistImage: {
+  albumArtist: {
+    color: '#9CA3AF',
+    fontSize: 8,
+    textAlign: 'center',
+    lineHeight: 10,
+  },
+  albumImage: {
     width: 50,
     height: 50,
     borderRadius: 8,
+  },
+  noAlbums: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    minHeight: 100,
+  },
+  noAlbumsText: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    textAlign: 'center',
   },
   coachSection: {
     marginBottom: 20,
@@ -472,10 +563,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
-    marginHorizontal: 16, // Add horizontal margin since it's outside content
-    marginBottom: 0,
-    position: 'absolute', // Position it absolutely
-    bottom: 90, // Adjust this number to position it where you want
+    marginHorizontal: 16,
+    marginBottom: 20,
+    position: 'absolute',
+    bottom: 20,
     left: 0,
     right: 0,
   },
