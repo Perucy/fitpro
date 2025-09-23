@@ -121,11 +121,11 @@ class SpotifyService {
             throw error;
         }
     }
-    async spotify_getPlaylist(): Promise<any> {
+    async spotify_getRecentlyPlayed(): Promise<any> {
         try {
             const token = await this.getAuthToken();
             
-            const response = await fetch(`${this.baseURL}/spotify/playlist`, {
+            const response = await fetch(`${this.baseURL}/spotify/recently-played`, {
                 headers: { 
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
