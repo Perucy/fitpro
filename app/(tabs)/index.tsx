@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Image, ScrollView, AppState } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import SpotifyService from "../../services/SpotifyService";
+import WhoopService from "../../services/WhoopService";
 
 export default function HomeScreen() {
   const [spotifyData, setSpotifyData] = useState({
@@ -10,9 +11,20 @@ export default function HomeScreen() {
     recentAlbums: [],
     loading: true
   });
+  const [whoopData, setWhoopData] = useState({
+    isWhoopConnected: false,
+    heartRate: 1000,
+    strain: 8.5,
+    recovery: 85,
+    calories: 420,
+    steps: 6800,
+    userName: 'Peru',
+    loading: false
+  });
 
   useEffect(() => {
     fetchSpotifyData();
+    fetchWhoopData();
 
     // Smart polling - faster when music is playing, slower when not
     const isPlaying = spotifyData.currentTrack?.is_playing;
@@ -20,10 +32,14 @@ export default function HomeScreen() {
       if (spotifyData.isSpotifyConnected) {
         fetchSpotifyData();
       }
+
+      if (whoopData.isWhoopConnected) {
+        fetchWhoopData();
+      }
     }, isPlaying ? 3000 : 10000); // 3s when playing, 10s when paused
 
     return () => clearInterval(interval);
-  }, [spotifyData.isSpotifyConnected, spotifyData.currentTrack?.is_playing]);
+  }, [spotifyData.isSpotifyConnected, whoopData.isWhoopConnected, spotifyData.currentTrack?.is_playing]);
 
   // Update when app comes into focus
   useEffect(() => {
@@ -37,7 +53,53 @@ export default function HomeScreen() {
     
     return () => subscription?.remove();
   }, [spotifyData.isSpotifyConnected]);
+  const fetchWhoopData = async () => {
+    try {
+      const status = await WhoopService.whoop_checkStatus();
+      console.log('Whoop connection status:', status);
 
+      if (status.connected) {
+        const [profile, recovery, workouts] = await Promise.all([
+          WhoopService.whoop_getProfile(),
+          WhoopService.whoop_getRecovery(),
+          WhoopService.whoop_getWorkouts()
+        ]);
+
+        // console.log('Latest recovery score object:', recovery?.records?.[0]?.score);
+        // console.log('Latest workout data:', workouts);
+        console.log('Latest workout score object:', workouts?.records?.[0]?.score);
+        console.log('Latest workout sport:', workouts?.records?.[0]?.sport_name);
+        const latestRecovery = recovery?.records?.[0]?.score;
+        const latestWorkout = workouts?.records?.[0]?.score;
+
+        // Extract relevant data
+        setWhoopData({
+          isWhoopConnected: true,
+          heartRate: latestRecovery?.resting_heart_rate || 700,
+          strain: latestWorkout?.strain || 0,
+          recovery: latestRecovery?.recovery_score || 0,
+          calories: profile?.calories || 0,
+          steps: profile?.steps || 0,
+          userName: profile?.first_name || 'User',
+          loading: false
+        });
+      } else {
+        setWhoopData({
+          isWhoopConnected: false,
+          heartRate: 72,
+          strain: 0,
+          recovery: 0,
+          calories: 0,
+          steps: 0,
+          userName: 'User',
+          loading: false
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching Whoop data:', error);
+      setWhoopData(prev => ({ ...prev, loading: false }));
+    }
+  };
   const fetchSpotifyData = async () => {
     try {
       const status = await SpotifyService.spotify_checkStatus();
@@ -145,13 +207,16 @@ export default function HomeScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <Text style={styles.greeting}>Hey, Perucy!</Text>
+          <Text style={styles.greeting}>Hey, {whoopData.userName}</Text>
           <View style={styles.headerRight}>
             <View style={styles.heartRate}>
               <Text style={styles.heartIcon}>❤️</Text>
-              <Text style={styles.heartText}>72</Text>
+              <Text style={styles.heartText}>{whoopData.heartRate}</Text>
             </View>
-            <Text style={styles.status}>Ready to Rock!</Text>
+            <Text style={styles.status}>
+              {whoopData.recovery > 70 ? 'Ready to Rock!' :
+                whoopData.recovery > 50 ? 'Moderate' : 'Recovery Mode'}
+            </Text>
           </View>
         </View>
       </View>
