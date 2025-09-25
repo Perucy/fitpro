@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Image, ScrollView, AppState } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, Image, ScrollView, AppState, Platform, TouchableOpacity } from 'react-native';
+// import * as Speech from 'expo-speech';
 import SpotifyService from "../../services/SpotifyService";
 import WhoopService from "../../services/WhoopService";
 
@@ -13,12 +13,14 @@ export default function HomeScreen() {
   });
   const [whoopData, setWhoopData] = useState({
     isWhoopConnected: false,
-    heartRate: 1000,
-    strain: 8.5,
-    recovery: 85,
+    heartRate: 84,
+    strain: 4.5,
+    recovery: 26,
     calories: 420,
-    steps: 6800,
-    userName: 'Peru',
+    userName: 'Perucy',
+    hrv: 37,
+    skinTemp: 34.8,
+    spo2: 97,
     loading: false
   });
 
@@ -26,38 +28,36 @@ export default function HomeScreen() {
     fetchSpotifyData();
     fetchWhoopData();
 
-    // Smart polling - faster when music is playing, slower when not
-    const isPlaying = spotifyData.currentTrack?.is_playing;
+    // Reduced polling frequency to avoid rate limits
     const interval = setInterval(() => {
       if (spotifyData.isSpotifyConnected) {
         fetchSpotifyData();
       }
-
       if (whoopData.isWhoopConnected) {
         fetchWhoopData();
       }
-    }, isPlaying ? 3000 : 10000); // 3s when playing, 10s when paused
+    }, 300000); // 5 minutes instead of seconds
 
     return () => clearInterval(interval);
-  }, [spotifyData.isSpotifyConnected, whoopData.isWhoopConnected, spotifyData.currentTrack?.is_playing]);
+  }, [spotifyData.isSpotifyConnected, whoopData.isWhoopConnected]);
 
   // Update when app comes into focus
   useEffect(() => {
     const handleAppStateChange = (nextAppState) => {
-      if (nextAppState === 'active' && spotifyData.isSpotifyConnected) {
-        fetchSpotifyData();
+      if (nextAppState === 'active') {
+        if (spotifyData.isSpotifyConnected) fetchSpotifyData();
+        if (whoopData.isWhoopConnected) fetchWhoopData();
       }
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
-    
     return () => subscription?.remove();
-  }, [spotifyData.isSpotifyConnected]);
+  }, [spotifyData.isSpotifyConnected, whoopData.isWhoopConnected]);
+
   const fetchWhoopData = async () => {
     try {
       const status = await WhoopService.whoop_checkStatus();
       console.log('Whoop connection status:', status);
-
       if (status.connected) {
         const [profile, recovery, workouts] = await Promise.all([
           WhoopService.whoop_getProfile(),
@@ -65,50 +65,40 @@ export default function HomeScreen() {
           WhoopService.whoop_getWorkouts()
         ]);
 
-        // console.log('Latest recovery score object:', recovery?.records?.[0]?.score);
-        // console.log('Latest workout data:', workouts);
-        console.log('Latest workout score object:', workouts?.records?.[0]?.score);
-        console.log('Latest workout sport:', workouts?.records?.[0]?.sport_name);
         const latestRecovery = recovery?.records?.[0]?.score;
         const latestWorkout = workouts?.records?.[0]?.score;
+        const calories = latestWorkout?.kilojoule ? Math.round(latestWorkout.kilojoule * 0.239) : 0;
+        console.log('Latest Whoop data:', { profile, latestRecovery, latestWorkout, calories });
 
-        // Extract relevant data
         setWhoopData({
           isWhoopConnected: true,
-          heartRate: latestRecovery?.resting_heart_rate || 700,
-          strain: latestWorkout?.strain || 0,
-          recovery: latestRecovery?.recovery_score || 0,
-          calories: profile?.calories || 0,
-          steps: profile?.steps || 0,
+          heartRate: latestRecovery?.resting_heart_rate || 84,
+          strain: latestWorkout?.strain || 100.5,
+          recovery: latestRecovery?.recovery_score || 26,
+          calories: calories,
           userName: profile?.first_name || 'User',
+          hrv: latestRecovery?.hrv_rmssd_milli || 37,
+          skinTemp: latestRecovery?.skin_temp_celsius || 344.8,
+          spo2: latestRecovery?.spo2_percentage || 97,
           loading: false
         });
       } else {
-        setWhoopData({
-          isWhoopConnected: false,
-          heartRate: 72,
-          strain: 0,
-          recovery: 0,
-          calories: 0,
-          steps: 0,
-          userName: 'User',
-          loading: false
-        });
+        setWhoopData(prev => ({ ...prev, isWhoopConnected: false, loading: false }));
       }
     } catch (error) {
       console.error('Error fetching Whoop data:', error);
       setWhoopData(prev => ({ ...prev, loading: false }));
     }
   };
+
   const fetchSpotifyData = async () => {
     try {
       const status = await SpotifyService.spotify_checkStatus();
 
       if (status.connected) {
-        const [profile, recentlyPlayed, currentplaying] = await Promise.all([
+        const [profile, recentlyPlayed] = await Promise.all([
           SpotifyService.spotify_getProfile(),
-          SpotifyService.spotify_getRecentlyPlayed(),
-          SpotifyService.spotify_getCurrentlyPlaying()
+          SpotifyService.spotify_getRecentlyPlayed()
         ]);
 
         // Extract unique albums from recently played tracks
@@ -126,23 +116,16 @@ export default function HomeScreen() {
               });
             }
           });
-          recentAlbums = Array.from(albumMap.values()).slice(0, 5);
+          recentAlbums = Array.from(albumMap.values()).slice(0, 3);
         }
 
-        // Always use real data - no placeholders
         setSpotifyData({
           isSpotifyConnected: true,
-          currentTrack: currentplaying, // Can be null if nothing playing
-          recentAlbums: recentAlbums, // Real albums or empty array
+          recentAlbums: recentAlbums,
           loading: false
         });
       } else {
-        setSpotifyData({
-          isSpotifyConnected: false,
-          currentTrack: null,
-          recentAlbums: [],
-          loading: false
-        });
+        setSpotifyData(prev => ({ ...prev, isSpotifyConnected: false, loading: false }));
       }
     } catch (error) {
       console.error('Error fetching Spotify data:', error);
@@ -150,64 +133,86 @@ export default function HomeScreen() {
     }
   };
 
-  // Render album items with only real data
-  const renderAlbumItems = () => {
-    if (spotifyData.loading) {
-      return (
-        <View style={styles.noAlbums}>
-          <Text style={styles.noAlbumsText}>Loading recent music...</Text>
-        </View>
-      );
-    }
-
+  const renderRecommendedMusic = () => {
     if (!spotifyData.isSpotifyConnected) {
       return (
-        <View style={styles.noAlbums}>
-          <Text style={styles.noAlbumsText}>Connect Spotify to view recent albums</Text>
+        <View style={styles.noMusic}>
+          <Text style={styles.noMusicText}>Connect Spotify for personalized recommendations</Text>
         </View>
       );
     }
 
-    if (!spotifyData.recentAlbums || spotifyData.recentAlbums.length === 0) {
+    if (spotifyData.recentAlbums.length === 0) {
       return (
-        <View style={styles.noAlbums}>
-          <Text style={styles.noAlbumsText}>No recent albums found. Play some music!</Text>
+        <View style={styles.noMusic}>
+          <Text style={styles.noMusicText}>Play some music to get recommendations</Text>
         </View>
       );
     }
 
-    // Always show real album data
     return (
-      <View style={styles.albumsRow}>
+      <View style={styles.recommendedRow}>
         {spotifyData.recentAlbums.map((album, index) => (
-          <View key={album.id} style={styles.albumItem}>
-            <View style={styles.albumArtContainer}>
+          <View key={album.id} style={styles.recommendedItem}>
+            <View style={styles.recommendedArt}>
               {album.images && album.images.length > 0 ? (
                 <Image
                   source={{ uri: album.images[0].url }}
-                  style={styles.albumImage}
+                  style={styles.recommendedImage}
                 />
               ) : (
                 <Text style={styles.albumPlaceholder}>🎵</Text>
               )}
             </View>
-            <Text style={styles.albumName} numberOfLines={2}>
+            <Text style={styles.recommendedName} numberOfLines={1}>
               {album.name}
-            </Text>
-            <Text style={styles.albumArtist} numberOfLines={1}>
-              {album.artist}
             </Text>
           </View>
         ))}
       </View>
     );
   };
+  const getTimeBasedGreeting = () => {
+    const hour = new Date().getHours();
+    
+    if (hour < 12) {
+      return "Good morning";
+    } else if (hour < 17) {
+      return "Good afternoon";
+    } else {
+      return "Good evening";
+    }
+  };
+  const getCoachMessage = () => {
+    if (whoopData.recovery > 70) {
+      return "Your recovery is excellent! Your body is ready for high-intensity training. Consider strength training or HIIT workouts.";
+    } else if (whoopData.recovery > 50) {
+      return "Good recovery levels. Moderate intensity training is recommended. Try a steady-state cardio session or moderate strength training.";
+    } else {
+      return `Your recovery is at ${whoopData.recovery}%. Focus on light movement today - walking, yoga, or stretching will help your body recover.`;
+    }
+  };
+
+  const speakDailyBriefing = () => {
+    const greeting = getTimeBasedGreeting();
+    const message = getCoachMessage();
+    const briefingText = `${greeting} ${whoopData.userName}. Here's your daily recovery briefing. ${message}`;
+
+    // Speech.speak(briefingText, {
+    //   language: 'en-US',
+    //   pitch: 1.0,
+    //   rate: 0.8,
+    //   voice: Platform.OS === 'android' ? undefined : 'com.apple.ttsbundle.Samantha-compact',
+    // });
+    alert(briefingText);
+
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <Text style={styles.greeting}>Hey, {whoopData.userName}</Text>
+          <Text style={styles.greeting}>Hey, {whoopData.userName}!</Text>
           <View style={styles.headerRight}>
             <View style={styles.heartRate}>
               <Text style={styles.heartIcon}>❤️</Text>
@@ -223,107 +228,90 @@ export default function HomeScreen() {
 
       {/* Main content area */}
       <View style={styles.content}>
-        <View style={styles.musicCard}>
-          <View style={styles.currentlyPlaying}>
-            <Text style={styles.sectionTitle}>🎵 Currently Playing</Text>
+        {/* Training Guidance Card */}
+        <View style={styles.preparationCard}>
+          <View style={styles.todaysGuidance}>
+            <Text style={styles.sectionTitle}>🌅 Today's Training Guidance</Text>
             
-            <View style={styles.currentTrackRow}>
-              <View style={styles.currentAlbumArt}>
-                {spotifyData.isSpotifyConnected && 
-                  spotifyData.currentTrack &&
-                  spotifyData.currentTrack.item &&
-                  spotifyData.currentTrack.item.album &&
-                  spotifyData.currentTrack.item.album.images &&
-                  spotifyData.currentTrack.item.album.images.length > 0 ? (
-                    <Image
-                      source={{ uri: spotifyData.currentTrack.item.album.images[0].url }}
-                      style={styles.currentAlbumImage}
-                    />
-                  ) : (
-                    <Text style={styles.currentAlbumPlaceholder}>
-                      {spotifyData.isSpotifyConnected ? '⏸️' : '🎵'}
-                    </Text>
-                  )}
+            <View style={styles.recoveryStatus}>
+              <View style={styles.recoveryCircle}>
+                <Text style={styles.recoveryScore}>{whoopData.recovery}%</Text>
+                <Text style={styles.recoveryLabel}>Recovery</Text>
               </View>
               
-              <View style={styles.songDetails}>
-                {spotifyData.isSpotifyConnected ? (
-                  spotifyData.currentTrack && spotifyData.currentTrack.item ? (
-                    <>
-                      <Text style={styles.songName}>
-                        {spotifyData.currentTrack.item.name}
-                      </Text>
-                      <Text style={styles.artistName}>
-                        {spotifyData.currentTrack.item.artists?.[0]?.name}
-                      </Text>
-                      <Text style={styles.songBPM}>
-                        {spotifyData.currentTrack.item.album?.name}
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Text style={styles.songName}>No music playing</Text>
-                      <Text style={styles.artistName}>Start playing on Spotify</Text>
-                      <Text style={styles.songBPM}>Track info will appear here</Text>
-                    </>
-                  )
-                ) : (
-                  <>
-                    <Text style={styles.songName}>Connect Spotify</Text>
-                    <Text style={styles.artistName}>Link your account to see music</Text>
-                    <Text style={styles.songBPM}>Tap to connect</Text>
-                  </>
-                )}
+              <View style={styles.guidanceText}>
+                <Text style={styles.recommendationTitle}>
+                  {whoopData.recovery > 70 ? 'High Intensity Ready' :
+                   whoopData.recovery > 50 ? 'Moderate Training' : 
+                   'Recovery Focus'}
+                </Text>
+                <Text style={styles.recommendationDetail}>
+                  {whoopData.recovery > 70 ? 'Your body is primed for challenging workouts' :
+                   whoopData.recovery > 50 ? 'Light to moderate exercise recommended' :
+                   'Focus on mobility and light activity today'}
+                </Text>
               </View>
             </View>
           </View>
           
-          <View style={styles.recentAlbums}>
-            <Text style={styles.sectionTitle}>Recent Albums</Text>
-            {renderAlbumItems()}
+          <View style={styles.recommendedMusic}>
+            <Text style={styles.sectionTitle}>🎵 Recommended for Recovery</Text>
+            {renderRecommendedMusic()}
           </View>
         </View>
 
+        {/* Recovery Metrics */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statIcon}>🏃‍♂️</Text>
-            <Text style={styles.statValue}>4.5k</Text>
-            <Text style={styles.statLabel}>Steps</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statIcon}>🔥</Text>
-            <Text style={styles.statValue}>1000</Text>
-            <Text style={styles.statLabel}>Calories</Text>
+            <Text style={styles.statIcon}>📈</Text>
+            <Text style={styles.statValue}>{whoopData.hrv?.toFixed(0)}</Text>
+            <Text style={styles.statLabel}>HRV</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statIcon}>💪</Text>
-            <Text style={styles.statValue}>9.9</Text>
-            <Text style={styles.statLabel}>Score</Text>
+            <Text style={styles.statValue}>{whoopData.strain?.toFixed(1)}</Text>
+            <Text style={styles.statLabel}>Strain</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statIcon}>⏱️</Text>
-            <Text style={styles.statValue}>45m</Text>
-            <Text style={styles.statLabel}>Time</Text>
+            <Text style={styles.statIcon}>🌡️</Text>
+            <Text style={styles.statValue}>{whoopData.skinTemp?.toFixed(1)}°</Text>
+            <Text style={styles.statLabel}>Skin Temp</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statIcon}>🎯</Text>
-            <Text style={styles.statValue}>3/5</Text>
-            <Text style={styles.statLabel}>Goals</Text>
+            <Text style={styles.statIcon}>🫁</Text>
+            <Text style={styles.statValue}>{whoopData.spo2?.toFixed(0)}%</Text>
+            <Text style={styles.statLabel}>SpO2</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statIcon}>🔋</Text>
+            <Text style={styles.statValue}>{whoopData.recovery}%</Text>
+            <Text style={styles.statLabel}>Recovery</Text>
           </View>
         </View>
         
+        {/* Expanded Coach Section */}
         <View style={styles.coachSection}>
-          <View style={styles.coachRow}>
+          <View style={styles.coachHeader}>
             <View style={styles.coachAvatar}>
               <Text style={styles.coachIcon}>🤖</Text>
             </View>
-            <View style={styles.coachMessageContainer}>
-              <View style={styles.coachBubble}>
-                <Text style={styles.coachMessage}>
-                  Your last run at 138 BPM was 🔥 Try pushing to 142 BPM today!
-                </Text>
+            <Text style={styles.coachTitle}>Your Recovery Coach</Text>
+          </View>
+          
+          <View style={styles.coachInsights}>
+            <View style={styles.coachBubble}>
+              <Text style={styles.coachMessage}>{getCoachMessage()}</Text>
+            </View>
+            
+            <View style={styles.coachActions}>
+              <TouchableOpacity style={styles.actionButton} onPress={speakDailyBriefing}>
+                <Text style={styles.actionEmoji}>🗣️</Text>
+                <Text style={styles.actionText}>Daily Briefing</Text>
+              </TouchableOpacity>
+              <View style={styles.actionButton}>
+                <Text style={styles.actionEmoji}>📋</Text>
+                <Text style={styles.actionText}>Training Plan</Text>
               </View>
-              <Text style={styles.coachAction}>Tap to ask Coach anything</Text>
             </View>
           </View>
         </View>
@@ -333,7 +321,7 @@ export default function HomeScreen() {
           <View style={styles.actionRow}>
             <View style={styles.actionButton}>
               <Text style={styles.actionEmoji}>📊</Text>
-              <Text style={styles.actionText}>View Stats</Text>
+              <Text style={styles.actionText}>Recovery Trends</Text>
             </View>
             <View style={styles.actionButton}>
               <Text style={styles.actionEmoji}>🎵</Text>
@@ -344,7 +332,7 @@ export default function HomeScreen() {
       </View>
       
       <View style={styles.buttonContainer}>
-        <Text style={styles.startButton}>START TRAINING</Text>
+        <Text style={styles.startButton}>GET TODAY'S PLAN</Text>
       </View>
     </ScrollView>
   );
@@ -361,11 +349,12 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#3B82F6',
-    paddingTop: 100,
-    paddingBottom: 20,
+    paddingTop: 80,
+    paddingBottom: 10,
     paddingHorizontal: 16,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
+    marginBottom: 0
   },
   headerRow: {
     flexDirection: 'row',
@@ -404,27 +393,108 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  musicCard: {
+  preparationCard: {
     backgroundColor: '#1F2937',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: '#374151',
-    marginBottom: 16,
+    marginTop: -10,
+    marginBottom: 6,
+    maxHeight: 280,
   },
-  currentlyPlaying: {
+  todaysGuidance: {
     marginBottom: 24,
   },
-  currentAlbumImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
+  recoveryStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  recoveryCircle: {
+    width: 80,
+    height: 80,
+    backgroundColor: '#374151',
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  recoveryScore: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  recoveryLabel: {
+    color: '#9CA3AF',
+    fontSize: 12,
+  },
+  guidanceText: {
+    flex: 1,
+  },
+  recommendationTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  recommendationDetail: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  recommendedMusic: {
+    marginTop: -8,
   },
   sectionTitle: {
     color: '#FFFF',
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 12,
+  },
+  recommendedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 8,
+    minHeight: 80
+  },
+  recommendedItem: {
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  recommendedArt: {
+    width: 60,
+    height: 60,
+    backgroundColor: '#374151',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  recommendedImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+  },
+  recommendedName: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  albumPlaceholder: {
+    fontSize: 24,
+    color: '#9CA3AF',
+  },
+  noMusic: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  noMusicText: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    textAlign: 'center',
   },
   statsRow: {
     flexDirection: 'row',
@@ -456,107 +526,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
   },
-  currentTrackRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  currentAlbumArt: {
-    width: 60,
-    height: 60,
-    backgroundColor: '#374151',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  currentAlbumPlaceholder: {
-    fontSize: 24,
-    color: '#9CA3AF',
-  },
-  songDetails: {
-    flex: 1,
-  },
-  songName: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  artistName: {
-    color: '#9CA3AF',
-    fontSize: 14,
-    marginBottom: 2,
-  },
-  songBPM: {
-    color: '#6B7280',
-    fontSize: 12,
-  },
-  recentAlbums: {
-    marginTop: 20,
-  },
-  albumsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    minHeight: 100,
-  },
-  albumItem: {
-    alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 4,
-    maxWidth: 70,
-  },
-  albumArtContainer: {
-    width: 50,
-    height: 50,
-    backgroundColor: '#374151',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  albumPlaceholder: {
-    fontSize: 20,
-    color: '#9CA3AF',
-  },
-  albumName: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    textAlign: 'center',
-    fontWeight: '600',
-    lineHeight: 11,
-    marginBottom: 2,
-  },
-  albumArtist: {
-    color: '#9CA3AF',
-    fontSize: 8,
-    textAlign: 'center',
-    lineHeight: 10,
-  },
-  albumImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-  },
-  noAlbums: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    minHeight: 100,
-  },
-  noAlbumsText: {
-    color: '#9CA3AF',
-    fontSize: 14,
-    textAlign: 'center',
-  },
   coachSection: {
+    backgroundColor: '#1F2937',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#374151',
     marginBottom: 20,
+    marginTop: -10
   },
-  coachRow: {
+  coachHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    marginBottom: 2,
   },
   coachAvatar: {
     width: 40,
@@ -570,23 +552,28 @@ const styles = StyleSheet.create({
   coachIcon: {
     fontSize: 20,
   },
-  coachMessageContainer: {
-    flex: 1,
+  coachTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  coachInsights: {
+    marginTop: 8,
   },
   coachBubble: {
     backgroundColor: '#374151',
     borderRadius: 16,
-    padding: 12,
-    marginBottom: 6,
+    padding: 16,
+    marginBottom: 16,
   },
   coachMessage: {
     color: '#FFFFFF',
     fontSize: 14,
+    lineHeight: 20,
   },
-  coachAction: {
-    color: '#6B7280',
-    fontSize: 12,
-    fontStyle: 'italic',
+  coachActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   quickActions: {
     backgroundColor: '#1F2937',
