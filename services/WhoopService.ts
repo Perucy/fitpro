@@ -100,6 +100,26 @@ class WhoopService {
         });
     }
 
+    async whoop_getUserData(): Promise<any> {
+        try {
+            const token = await this.getAuthToken();
+            
+            const response = await fetch(`${this.baseURL}/whoop/user-data`, {
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                return await response.json();
+            }
+            throw new Error('Failed to fetch Whoop data');
+        } catch (error) {
+            console.error('Whoop data fetch error:', error);
+            throw error;
+        }
+    }
     // Get Whoop data using your backend endpoints
     async whoop_getProfile(): Promise<any> {
         try {
@@ -127,6 +147,26 @@ class WhoopService {
             const token = await this.getAuthToken();
             
             const response = await fetch(`${this.baseURL}/whoop/recovery`, {
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                return await response.json();
+            }
+            throw new Error('Failed to fetch recovery data');
+        } catch (error) {
+            console.error('Whoop recovery fetch error:', error);
+            throw error;
+        }
+    }
+    async whoop_getWorkouts(): Promise<any> {
+        try {
+            const token = await this.getAuthToken();
+            
+            const response = await fetch(`${this.baseURL}/whoop/workouts`, {
                 headers: { 
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
